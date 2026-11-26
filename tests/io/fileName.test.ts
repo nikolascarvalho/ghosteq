@@ -69,6 +69,46 @@ describe('nome do arquivo exportado', () => {
     expect(name.length).toBeLessThanOrEqual(64);
   });
 
+  it('modo gráfico usa os valores dos SLIDERS (não as bandas internas corrigidas)', () => {
+    const c: CurveConfig = {
+      ...curve([]),
+      mode: 'graphic9',
+      modeState: {
+        graphic9: {
+          gainsDb: [8, 0, 0, 0, -6, 4, 0, 0, 0],
+          hpf: { enabled: true, freq: 90 },
+          lpf: { enabled: false, freq: 10000 },
+        },
+      },
+    };
+    expect(exportFileName(c, nano)).toBe('GEQ9_HP90_65+8_1k-6_2k+4_Nano1024.wav');
+  });
+
+  it('tone stack e tilt', () => {
+    const ts: CurveConfig = {
+      ...curve([], 2),
+      mode: 'tonestack',
+      modeState: {
+        tonestack: {
+          bassDb: 3,
+          midDb: -2.4,
+          midFreq: 800,
+          trebleDb: 0,
+          presenceDb: 1.2,
+          hpf: { enabled: false, freq: 80 },
+          lpf: { enabled: false, freq: 10000 },
+        },
+      },
+    };
+    expect(exportFileName(ts, nano)).toBe('TS_B+3_M800-2.4_P+1.2_+2dB_Nano1024.wav');
+    const tilt: CurveConfig = {
+      ...curve([]),
+      mode: 'tilt',
+      modeState: { tilt: { tiltDb: -4, pivotHz: 800 } },
+    };
+    expect(exportFileName(tilt, helix)).toBe('TILT-4dB_at800_Helix2048.wav');
+  });
+
   it('formatação de frequência e ganho', () => {
     expect(formatFreq(80)).toBe('80');
     expect(formatFreq(1000)).toBe('1k');

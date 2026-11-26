@@ -8,7 +8,17 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { DEFAULT_DEVICE_ID } from '../config/devices';
 import { parseCurve } from '../io/presetsJson';
-import { defaultCurve, LIMITS, type Band, type CurveConfig, type CustomDevice } from '../model/curve';
+import { fitGraphic, type ModeStates } from '../dsp/modes';
+import {
+  activeSpecs,
+  defaultCurve,
+  LIMITS,
+  type Band,
+  type CurveConfig,
+  type CustomDevice,
+  type EqMode,
+} from '../model/curve';
+import { compileModeBands, isFlat, isGraphicMode, stateFor } from '../model/modes';
 import { emptyHistory, record, redo, undo, type History } from './history';
 
 export interface EditOptions {
@@ -30,6 +40,20 @@ interface CurveState {
   setOutputGain: (db: number, opts?: EditOptions) => void;
   setDevice: (devicePresetId: string, custom?: CustomDevice) => void;
   reset: () => void;
+  /**
+   * Troca o modo de EQ.
+   * - → paramétrico: SEM PERDA (as bandas compiladas viram bandas editáveis).
+   * - → gráfico: se a curva atual altera o som, os sliders são AJUSTADOS para
+   *   imitá-la (aproximação); se é flat, restaura o último estado do modo.
+   * - → tone stack / tilt: restaura o último estado do modo (ou o padrão).
+   */
+  setMode: (mode: EqMode) => void;
+  /** Atualiza os controles do modo atual e recompila as bandas. */
+  setModeState: <M extends Exclude<EqMode, 'parametric'>>(
+    mode: M,
+    state: NonNullable<ModeStates[M]>,
+    opts?: EditOptions,
+  ) => void;
   beginGesture: () => void;
   endGesture: () => void;
   undo: () => void;
@@ -97,7 +121,38 @@ export const useCurveStore = create<CurveState>()(
           commit(next);
         },
 
-        reset: () => commit(defaultCurve(get().curve.devicePresetId)),
+        reset: () => {
+          const { curve } = get();
+          if (curve.mode === 'parametric') {
+            // Zera só o modo atual: controles salvos dos outros modos e o aparelho ficam.
+            const next: CurveConfig = { ...defaultCurve(curve.devicePresetId) };
+            if (curve.modeState) next.modeState = curve.modeState;
+            if (curve.customDevice) next.customDevice = curve.customDevice;
+            return commit(next);
+          }
+          // Fora do paramétrico, "zerar" volta os controles do modo atual ao padrão.
+          const modeState: ModeStates = { ...curve.modeState, [curve.mode]: undefined };
+          commit({ ...curve, outputGainDb: 0, modeState, bands: compileModeBands(curve.mode, modeState) });
+        },
+
+        setMode: (mode) => {
+          const { curve } = get();
+          if (mode === curve.mode) return;
+          if (mode === 'parametric') return commit({ ...curve, mode });
+          let modeState: ModeStates = { ...curve.modeState };
+          if (isGraphicMode(mode) && !isFlat(curve.bands)) {
+            modeState = { ...modeState, [mode]: fitGraphic(mode, activeSpecs(curve)) };
+          } else {
+            modeState = { ...modeState, [mode]: stateFor(mode, curve.modeState) };
+          }
+          commit({ ...curve, mode, modeState, bands: compileModeBands(mode, modeState) });
+        },
+
+        setModeState: (mode, state, opts) => {
+          const { curve } = get();
+          const modeState: ModeStates = { ...curve.modeState, [mode]: state };
+          commit({ ...curve, mode, modeState, bands: compileModeBands(mode, modeState) }, opts);
+        },
 
         beginGesture: () => {
           if (!get().gestureStart) set({ gestureStart: get().curve });

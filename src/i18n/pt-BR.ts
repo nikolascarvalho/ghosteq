@@ -18,6 +18,41 @@ export const ptBR = {
   'editor.legendReal': 'Curva real no aparelho ({n} amostras)',
   'editor.legendDeviation': 'Desvio > 1 dB',
 
+  'mode.label': 'Modo de EQ',
+  'mode.parametric': 'Paramétrico',
+  'mode.graphic9': 'Gráfico 9 (Nano)',
+  'mode.graphic10': 'Gráfico 10',
+  'mode.graphic31': 'Gráfico 31',
+  'mode.tonestack': 'Tone stack',
+  'mode.tilt': 'Tilt',
+  'mode.confirmFit':
+    'Converter a curva atual para "{mode}" é uma APROXIMAÇÃO: os sliders vão imitar a curva nos centros das bandas, e detalhes mais estreitos que uma banda se perdem. Você pode desfazer depois. Continuar?',
+  'mode.confirmReplace':
+    'O modo "{mode}" não consegue reproduzir a curva atual: ela será substituída pelos controles desse modo. Você pode desfazer depois. Continuar?',
+  'mode.toParametric': 'Convertido para paramétrico sem perda: cada controle virou uma banda editável.',
+  'mode.readonlyGraph': 'Neste modo o gráfico só mostra a curva; ajuste pelos controles abaixo.',
+  'mode.flatAll': 'Zerar controles',
+  'mode.hpf': 'HPF',
+  'mode.lpf': 'LPF',
+  'mode.imprecise': 'Imprecisa neste aparelho',
+  'graphic.title': 'Equalizador gráfico',
+  'graphic.nanoNote':
+    'Mesmas frequências do bloco Graphic-9 do Nano Cortex. Para copiar um preset do aparelho, ponha os mesmos valores aqui e o OUTPUT no "Ganho de saída".',
+  'graphic.scrollHint': 'Role para o lado para ver todas as bandas.',
+  'tonestack.title': 'Tone stack',
+  'tonestack.bass': 'Grave',
+  'tonestack.mid': 'Médio',
+  'tonestack.treble': 'Agudo',
+  'tonestack.presence': 'Presença',
+  'tonestack.midFreq': 'Frequência do médio',
+  'tonestack.hint':
+    'Knobs de 0 a 10, como num amp: 5 = sem alteração. Arraste para cima/baixo, use a roda do mouse ou as setas; duplo clique volta ao 5.',
+  'tilt.title': 'Tilt',
+  'tilt.amount': 'Inclinação',
+  'tilt.pivot': 'Pivô',
+  'tilt.hint':
+    'Inclina o espectro inteiro em torno do pivô: para + fica mais brilhante (agudo sobe, grave desce); para − fica mais escuro.',
+
   'band.none': 'Toque num ponto do gráfico ou numa banda da lista para editar.',
   'band.type': 'Tipo',
   'band.freq': 'Frequência',

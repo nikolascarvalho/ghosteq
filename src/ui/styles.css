@@ -390,11 +390,16 @@ button.danger {
 
 .editor-columns {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0 14px;
+}
+/* Sem isto, a faixa de 31 sliders alargaria a coluna (e a página) em vez de rolar. */
+.editor-columns > * {
+  min-width: 0;
 }
 @media (min-width: 860px) {
   .editor-columns {
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     align-items: start;
   }
 }
@@ -570,4 +575,166 @@ fieldset.format legend {
 .preset-name {
   flex: 1 1 140px;
   font-weight: 600;
+}
+
+/* ---------- Modos ---------- */
+.mode-tabs-wrap {
+  margin-top: 12px;
+}
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.tab {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  flex: none;
+}
+.tab.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.panel-head h2 {
+  margin: 0;
+}
+.band-marker .marker-dot {
+  fill: var(--accent);
+  stroke: #0b0d12;
+  stroke-width: 1.5;
+}
+.band-marker {
+  pointer-events: none;
+}
+
+.graphic-sliders {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px 2px 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.gslider {
+  flex: 1 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  border-radius: 6px;
+  padding: 2px 0;
+}
+.graphic-sliders.dense .gslider {
+  flex: 0 0 34px;
+}
+.gslider.warn-col {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+.gslider input.vertical {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 150px;
+  width: 32px;
+  accent-color: var(--accent);
+  touch-action: none;
+}
+.gval {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.gfreq {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.gwarn {
+  color: var(--warn);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.cut-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cut-filter input.num {
+  width: 90px;
+}
+
+.knob-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  justify-content: space-around;
+  margin: 8px 0 12px;
+}
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  position: relative;
+  min-width: 76px;
+}
+.knob svg {
+  cursor: ns-resize;
+  touch-action: none;
+  outline: none;
+}
+.knob svg:focus-visible .knob-body {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.knob-track {
+  fill: none;
+  stroke: #2a2f3a;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.knob-value {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.knob-body {
+  fill: #12151c;
+  stroke: #000;
+}
+.knob-pointer {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.knob-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.knob-display {
+  font-variant-numeric: tabular-nums;
+}
+.knob-sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.knob-warn .knob-value {
+  stroke: var(--warn);
+}
+.knob-warn-icon {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  color: var(--warn);
 }

@@ -1,7 +1,9 @@
 // Nome automático e descritivo para o WAV exportado, ex.: EQ_3k-5dB_+9dB_Nano1024.wav
 // Ajuda a achar o IR certo depois, na lista do Cortex Cloud / HX Edit.
 import type { DevicePreset } from '../config/devices';
+import { GRAPHIC_LAYOUTS } from '../dsp/modes';
 import type { Band, CurveConfig } from '../model/curve';
+import { graphicStateOf, isGraphicMode, tiltStateOf, toneStackStateOf } from '../model/modes';
 
 const MAX_BANDS_IN_NAME = 3;
 const MAX_LENGTH = 64;
@@ -50,19 +52,72 @@ export interface FileNameOptions {
   prefix?: string;
 }
 
-export function exportFileName(curve: CurveConfig, device: DevicePreset, opts: FileNameOptions = {}): string {
+/** Até 3 itens de maior peso, em ordem de frequência, + contagem do resto. */
+function topTokens<T>(items: T[], weight: (x: T) => number, freq: (x: T) => number, token: (x: T) => string) {
+  const top = [...items]
+    .sort((a, b) => weight(b) - weight(a))
+    .slice(0, MAX_BANDS_IN_NAME)
+    .sort((a, b) => freq(a) - freq(b));
+  const out = top.map(token);
+  if (items.length > top.length) out.push(`+${items.length - top.length}`);
+  return out;
+}
+
+const db = (v: number) => {
+  const r = Math.round(v * 10) / 10;
+  return `${r > 0 ? '+' : ''}${r}`;
+};
+
+/**
+ * Tokens que descrevem a curva. Nos modos gráfico/tone stack/tilt o nome usa os
+ * CONTROLES que o usuário mexeu (ex.: 1k-6), não as bandas internas compiladas
+ * (que têm ganhos corrigidos e várias bandas pequenas de compensação).
+ */
+function curveTokens(curve: CurveConfig): string[] {
+  const { mode, modeState } = curve;
+  if (isGraphicMode(mode)) {
+    const { freqs } = GRAPHIC_LAYOUTS[mode];
+    const s = graphicStateOf(mode, modeState);
+    const sliders = s.gainsDb.map((g, i) => ({ g, f: freqs[i]! })).filter((x) => Math.abs(x.g) >= 0.05);
+    const tokens = topTokens(
+      sliders,
+      (x) => Math.abs(x.g),
+      (x) => x.f,
+      (x) => `${formatFreq(x.f)}${db(x.g)}`,
+    );
+    if (s.hpf.enabled) tokens.unshift(`HP${formatFreq(s.hpf.freq)}`);
+    if (s.lpf.enabled) tokens.push(`LP${formatFreq(s.lpf.freq)}`);
+    return [`GEQ${freqs.length}`, ...(tokens.length ? tokens : ['flat'])];
+  }
+  if (mode === 'tonestack') {
+    const s = toneStackStateOf(modeState);
+    const knobs: [string, number][] = [
+      ['B', s.bassDb],
+      [`M${formatFreq(s.midFreq)}`, s.midDb],
+      ['T', s.trebleDb],
+      ['P', s.presenceDb],
+    ];
+    const tokens = knobs.filter(([, v]) => Math.abs(v) >= 0.05).map(([k, v]) => `${k}${db(v)}`);
+    if (s.hpf.enabled) tokens.unshift(`HP${formatFreq(s.hpf.freq)}`);
+    if (s.lpf.enabled) tokens.push(`LP${formatFreq(s.lpf.freq)}`);
+    return ['TS', ...(tokens.length ? tokens : ['flat'])];
+  }
+  if (mode === 'tilt') {
+    const s = tiltStateOf(modeState);
+    return Math.abs(s.tiltDb) < 0.05
+      ? ['TILT', 'flat']
+      : [`TILT${db(s.tiltDb)}dB`, `at${formatFreq(s.pivotHz)}`];
+  }
   const audible = curve.bands.filter(isAudible);
   // As bandas de maior impacto primeiro (filtros de corte contam como 12 dB), depois por frequência.
   const weight = (b: Band) => (['peak', 'lowshelf', 'highshelf'].includes(b.type) ? Math.abs(b.gainDb) : 12);
-  const top = [...audible]
-    .sort((a, b) => weight(b) - weight(a))
-    .slice(0, MAX_BANDS_IN_NAME)
-    .sort((a, b) => a.freq - b.freq);
+  const tokens = topTokens(audible, weight, (b) => b.freq, bandToken);
+  return ['EQ', ...(tokens.length ? tokens : ['flat'])];
+}
 
-  const parts = [opts.prefix ?? 'EQ'];
-  if (top.length === 0) parts.push('flat');
-  parts.push(...top.map(bandToken));
-  if (audible.length > top.length) parts.push(`+${audible.length - top.length}`);
+export function exportFileName(curve: CurveConfig, device: DevicePreset, opts: FileNameOptions = {}): string {
+  const [defaultPrefix, ...tokens] = curveTokens(curve);
+  const parts = [opts.prefix ?? defaultPrefix!, ...tokens];
   if (Math.abs(curve.outputGainDb) >= 0.05) parts.push(formatGain(curve.outputGainDb));
   const deviceTag = `${device.shortName}${device.irLength}`;
 

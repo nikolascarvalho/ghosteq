@@ -10,6 +10,7 @@ import {
   type Band,
   type CurveConfig,
 } from '../model/curve';
+import { compileModeBands, normalizeModeStates } from '../model/modes';
 
 export const PRESET_FORMAT = 'ghosteq-preset';
 
@@ -139,13 +140,19 @@ export function validateCurve(raw: Record<string, unknown>): ParseResult<CurveCo
     }
   }
 
+  const eqMode = mode as CurveConfig['mode'];
+  const modeState = isObject(raw.modeState) ? normalizeModeStates(raw.modeState) : undefined;
+  // Fora do paramétrico, as bandas são recompiladas a partir dos controles do
+  // modo: garante que o arquivo nunca carregue bandas e controles divergentes.
+  const finalBands = eqMode === 'parametric' ? bands : compileModeBands(eqMode, modeState);
+
   const curve: CurveConfig = {
     schemaVersion: CURVE_SCHEMA_VERSION,
-    mode: mode as CurveConfig['mode'],
-    bands,
+    mode: eqMode,
+    bands: finalBands,
     outputGainDb: clampedGain,
     devicePresetId: raw.devicePresetId as string,
-    ...(isObject(raw.modeState) ? { modeState: raw.modeState } : {}),
+    ...(modeState ? { modeState } : {}),
     ...(customDevice ? { customDevice } : {}),
   };
   return { ok: true, value: curve, warnings };

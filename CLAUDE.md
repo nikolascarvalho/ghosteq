@@ -185,3 +185,5 @@ O usuário testa no Chrome e no Edge (Windows) com o Nano Cortex e reporta. Se s
 9. Bibliotecas pequenas aprovadas: `wouter` (rotas), `idb-keyval` (IndexedDB). i18n é solução própria.
 10. TypeScript fixado em 6.0.x: o TypeScript 7 (compilador nativo) não tem a API JS que o typescript-eslint usa. Só subir para 7 quando o typescript-eslint suportar.
 11. Resultado do spike com Focusrite Scarlett 2i2 (1ª geração), Chrome 158/Windows: 2/2 canais, 48 kHz, sem processamento de voz, latência total ~70 ms (saída 50 ms). Teste com o Nano (canais 3/4) ainda pendente.
+12. Graphic-9 do Nano Cortex (confirmado pelo usuário no app Cortex Mobile): 65, 125, 250, 500 Hz, 1, 2, 4, 8, 16 kHz, mais HPF, LPF e OUTPUT. Q interno do Nano desconhecido; o GhostEQ usa Q proporcional + correção para a curva bater com os sliders.
+13. Modos não paramétricos guardam os controles em `modeState` e `bands` é sempre a lista compilada. O nome do WAV nesses modos usa os valores dos controles (ex.: `GEQ9_65+8_1k-6_...`), não as bandas internas.

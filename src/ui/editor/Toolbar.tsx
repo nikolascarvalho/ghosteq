@@ -10,6 +10,7 @@ export function Toolbar({ onSelect }: Props) {
   const { t } = useT();
   const canUndo = useCurveStore(selectCanUndo);
   const canRedo = useCurveStore(selectCanRedo);
+  const parametric = useCurveStore((s) => s.curve.mode === 'parametric');
   const { undo, redo, reset, addBand } = useCurveStore.getState();
 
   return (
@@ -31,14 +32,16 @@ export function Toolbar({ onSelect }: Props) {
         >
           {t('editor.reset')}
         </button>
-        <button
-          onClick={() => {
-            const id = addBand({ type: 'peak', freq: 1000, gainDb: 0, q: 1, enabled: true });
-            if (id) onSelect(id);
-          }}
-        >
-          {t('editor.addBand')}
-        </button>
+        {parametric && (
+          <button
+            onClick={() => {
+              const id = addBand({ type: 'peak', freq: 1000, gainDb: 0, q: 1, enabled: true });
+              if (id) onSelect(id);
+            }}
+          >
+            {t('editor.addBand')}
+          </button>
+        )}
       </div>
     </div>
   );

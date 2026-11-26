@@ -2,6 +2,7 @@
 // Fica numa camada própria (abaixo de state/ e io/) porque os dois precisam dele:
 // state/ guarda, io/ salva/carrega, workers/ consomem. Só tipos, constantes e
 // funções puras.
+import type { ModeStates } from '../dsp/modes/types';
 import type { FilterSpec, FilterType } from '../dsp/types';
 
 /** Versão atual do schema. Ao mudar o formato: incremente e escreva uma migração em io/presetsJson.ts. */
@@ -46,14 +47,15 @@ export interface CustomDevice {
 
 /**
  * Configuração completa de uma curva. Serializada como JSON nos presets.
- * `modeState` guarda o estado específico do modo (sliders do gráfico, knobs do
- * tone stack, tilt); o formato de cada modo é definido na etapa dos modos.
+ * `modeState` guarda os controles de cada modo (sliders do gráfico, knobs do
+ * tone stack, tilt). Em qualquer modo, `bands` é a lista COMPILADA — é o que
+ * vira IR. Por isso voltar ao paramétrico é sem perda: as bandas já estão lá.
  */
 export interface CurveConfig {
   schemaVersion: typeof CURVE_SCHEMA_VERSION;
   mode: EqMode;
   bands: Band[];
-  modeState?: Record<string, unknown>;
+  modeState?: ModeStates;
   outputGainDb: number;
   devicePresetId: string;
   /** Usado só quando devicePresetId = 'custom'. */

@@ -27,6 +27,8 @@ import {
 interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** false = modos gráfico/tone stack/tilt: o gráfico só mostra a curva. */
+  editable?: boolean;
 }
 
 type Pt = { x: number; y: number };
@@ -34,7 +36,7 @@ type Pt = { x: number; y: number };
 const round1 = (v: number) => Math.round(v * 10) / 10;
 const clampQ = (q: number) => Math.min(LIMITS.q.max, Math.max(LIMITS.q.min, q));
 
-export function EqGraph({ selectedId, onSelect }: Props) {
+export function EqGraph({ selectedId, onSelect, editable = true }: Props) {
   const { t } = useT();
   const bands = useCurveStore((s) => s.curve.bands);
   const result = useIrStore((s) => s.result);
@@ -123,7 +125,7 @@ export function EqGraph({ selectedId, onSelect }: Props) {
   };
 
   const onDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if ((e.target as Element).closest('[data-band-id]')) return;
+    if (!editable || (e.target as Element).closest('[data-band-id]')) return;
     const pt = local(e);
     const id = store().addBand({
       type: 'peak',
@@ -233,37 +235,64 @@ export function EqGraph({ selectedId, onSelect }: Props) {
           </g>
         )}
 
-        {/* Pontos das bandas */}
-        {bands.map((b, i) => {
-          const x = freqToX(b.freq, v);
-          const y = dbToY(hasGain(b.type) ? Math.max(-18, Math.min(18, b.gainDb)) : 0, v);
-          const dev = deviationByBand.get(b.id);
-          const selected = b.id === selectedId;
-          const label = `${t(`band.type.${b.type}`)} ${Math.round(b.freq)} Hz ${hasGain(b.type) ? formatDb(b.gainDb) : ''}`;
-          return (
-            <g
-              key={b.id}
-              data-band-id={b.id}
-              className={`band-handle${b.enabled ? '' : ' off'}${selected ? ' selected' : ''}`}
-              style={{ color: bandColor(i) }}
-              role="button"
-              aria-label={label}
-            >
-              <title>
-                {dev?.imprecise
-                  ? `${label}\n${t('band.imprecise', { d: formatDb(Math.abs(dev.deviationDb)), n: result?.length ?? 0 })}`
-                  : label}
-              </title>
-              {/* área de toque grande e invisível */}
-              <circle cx={x} cy={y} r={22} className="hit" />
-              {dev?.imprecise && <circle cx={x} cy={y} r={14} className="imprecise-ring" />}
-              <circle cx={x} cy={y} r={selected ? 9 : 7} className="dot" />
-              <text x={x} y={y + 3.5} textAnchor="middle" className="dot-label">
-                {i + 1}
-              </text>
-            </g>
-          );
-        })}
+        {/* Modos não paramétricos: só marcadores sobre a curva (sem arrastar). */}
+        {!editable &&
+          result &&
+          bands.map((b) => {
+            if (b.type === 'hpf12' || b.type === 'lpf12') return null;
+            const idx = Math.min(
+              result.freqs.length - 1,
+              Math.max(
+                0,
+                result.freqs.findIndex((f) => f >= b.freq),
+              ),
+            );
+            const x = freqToX(b.freq, v);
+            const y = dbToY(Math.max(-18, Math.min(18, result.targetDb[idx]! - offset)), v);
+            const dev = deviationByBand.get(b.id);
+            return (
+              <g key={b.id} className="band-marker">
+                <title>
+                  {`${Math.round(b.freq)} Hz${dev?.imprecise ? `\n${t('band.imprecise', { d: formatDb(Math.abs(dev.deviationDb)), n: result.length })}` : ''}`}
+                </title>
+                {dev?.imprecise && <circle cx={x} cy={y} r={9} className="imprecise-ring" />}
+                <circle cx={x} cy={y} r={3.5} className="marker-dot" />
+              </g>
+            );
+          })}
+
+        {/* Pontos das bandas (paramétrico) */}
+        {editable &&
+          bands.map((b, i) => {
+            const x = freqToX(b.freq, v);
+            const y = dbToY(hasGain(b.type) ? Math.max(-18, Math.min(18, b.gainDb)) : 0, v);
+            const dev = deviationByBand.get(b.id);
+            const selected = b.id === selectedId;
+            const label = `${t(`band.type.${b.type}`)} ${Math.round(b.freq)} Hz ${hasGain(b.type) ? formatDb(b.gainDb) : ''}`;
+            return (
+              <g
+                key={b.id}
+                data-band-id={b.id}
+                className={`band-handle${b.enabled ? '' : ' off'}${selected ? ' selected' : ''}`}
+                style={{ color: bandColor(i) }}
+                role="button"
+                aria-label={label}
+              >
+                <title>
+                  {dev?.imprecise
+                    ? `${label}\n${t('band.imprecise', { d: formatDb(Math.abs(dev.deviationDb)), n: result?.length ?? 0 })}`
+                    : label}
+                </title>
+                {/* área de toque grande e invisível */}
+                <circle cx={x} cy={y} r={22} className="hit" />
+                {dev?.imprecise && <circle cx={x} cy={y} r={14} className="imprecise-ring" />}
+                <circle cx={x} cy={y} r={selected ? 9 : 7} className="dot" />
+                <text x={x} y={y + 3.5} textAnchor="middle" className="dot-label">
+                  {i + 1}
+                </text>
+              </g>
+            );
+          })}
       </svg>
     </div>
   );

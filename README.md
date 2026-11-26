@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 4 (editor paramétrico). Já dá para montar uma curva, ver a curva real no aparelho e exportar o WAV. Próximos: modos gráfico/tone stack/tilt, caixa + EQ, modo ao vivo, PWA.
+> **Status:** etapa 5 (modos de EQ). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack e tilt, com exportação do WAV. Próximos: caixa + EQ, modo ao vivo, PWA.
 
 ---
 
@@ -101,7 +101,12 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
   - `convolve.ts`: convolução (direta para IRs curtos, via FFT para sinais longos). Vai servir para juntar IR de caixa + EQ.
   - `resample.ts`: muda a taxa de amostragem (ex.: IR de caixa de 44,1 kHz → 48 kHz) com sinc janelado (Kaiser). `resampleIr` corrige o ganho e preserva as "pontas" do filtro para a curva não mudar.
   - `target.ts`: ponto de extensão da v2 ("curva desenhada → IR"), por enquanto só tipos.
-- **`src/model/`** — O "schema" da fonte da verdade: o tipo `CurveConfig` (modo, bandas, ganho de saída, aparelho) com `schemaVersion`. Fica numa camada própria, abaixo de `state/` e `io/`, porque os dois dependem dele, como um contrato de dados compartilhado entre o job que escreve e o que lê.
+  - `modes/`: os **modos de EQ** como "compiladores" puros. Cada modo (gráfico, tone stack, tilt) recebe os controles da tela e devolve a mesma lista de filtros do modo paramétrico, como vários front-ends de SQL gerando o mesmo plano de execução. Por isso exportação, gráfico e áudio não sabem (nem precisam saber) em que modo você está.
+    - `config.ts`: frequências e faixas, fáceis de editar. **Graphic-9 = as mesmas frequências do bloco Graphic-9 do Nano Cortex** (65, 125, 250, 500 Hz, 1, 2, 4, 8, 16 kHz), conferidas no app do aparelho. 10 bandas = oitavas ISO; 31 bandas = 1/3 de oitava ISO.
+    - `compilers.ts`: no modo gráfico cada slider é um peak com **Q proporcional** (`Q = Q_base × (0,7 + |ganho|/12)`): com pouco ganho a banda é larga e suave; com muito ganho, estreita, para vazar menos nas vizinhas. A fórmula foi escolhida por protótipo numérico. Em seguida, 3 iterações de correção ajustam os ganhos internos para a curva no centro de cada banda **bater com o valor do slider** (±0,5 dB). Tone stack = grave (low shelf 120 Hz), médio (peak com frequência selecionável), agudo (high shelf 2,5 kHz) e presença (peak 4,5 kHz). Tilt = low shelf −t + high shelf +t no mesmo pivô.
+    - **Conversões:** qualquer modo → paramétrico é **sem perda** (as bandas compiladas viram bandas editáveis). Paramétrico → gráfico é **aproximação**: os sliders recebem o valor da curva no centro de cada banda, e o app avisa antes. Tone stack/tilt não conseguem imitar uma curva qualquer, então ao entrar neles a curva atual é substituída (também com aviso). Tudo pode ser desfeito.
+    - Limitação honesta: não temos como saber o Q interno que a Neural DSP usa no Graphic-9. Os mesmos valores nos sliders dão uma curva parecida, mas não necessariamente idêntica. Compare de ouvido (A/B) no aparelho.
+- **`src/model/`** — O "schema" da fonte da verdade: o tipo `CurveConfig` (modo, bandas, ganho de saída, aparelho, controles de cada modo em `modeState`) com `schemaVersion`. `modes.ts` liga o modelo aos compiladores de modo; ao abrir um preset fora do modo paramétrico, as bandas são recompiladas a partir dos controles, para arquivo e tela nunca divergirem. Fica numa camada própria, abaixo de `state/` e `io/`, porque os dois dependem dele, como um contrato de dados compartilhado entre o job que escreve e o que lê.
 - **`src/io/`** — Entrada e saída de arquivos e do banco local:
   - `wavEncode.ts` / `wavDecode.ts`: escrevem e leem WAV. A exportação usa 24-bit PCM por padrão e **troca sozinha para 32-bit float** quando o pico passa de 1.0, porque PCM inteiro cortaria (clip) o sinal. A leitura aceita 8/16/24/32-bit, float e o formato "extensible", e ignora chunks extras (metadados), como fazem os players.
   - `presetsJson.ts`: salvar e abrir presets `.json`. Ao ler, aplica **migrações** de versões antigas do schema (v1 → v2 → …), igual a _schema evolution_ num data lake, e depois **valida**: tipos desconhecidos são recusados e valores fora da faixa são ajustados com aviso. Preset de versão mais nova que o app é recusado.
