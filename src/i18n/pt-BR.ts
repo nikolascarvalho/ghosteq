@@ -38,9 +38,13 @@ export const ptBR = {
   'diag.roleProcessed': 'processado',
   'diag.devicePreset': 'Mapeamento esperado',
   'diag.none': 'Nenhum',
-  'diag.verdictOk': '{n} canais chegando. Os canais 3/4 do Nano estão acessíveis.',
-  'diag.verdictTwo':
-    'Só {n} canal(is) chegando. O navegador não está entregando os canais 3/4. Veja as alternativas no README (VoiceMeeter ou roteamento no driver).',
+  'diag.verdictAll': 'Todos os {n} canais que o dispositivo anuncia chegam ao navegador.',
+  'diag.verdictPartial': 'Chegam {n} de {max} canais anunciados pelo dispositivo.',
+  'diag.verdictMapping':
+    'Só {n} canal(is) chegando, mas o mapeamento escolhido precisa do canal {need}. Veja as alternativas no README (VoiceMeeter ou roteamento no driver).',
+  'diag.verdictMappingOk': 'O mapeamento escolhido (até o canal {need}) está acessível.',
+  'diag.latencyHigh':
+    'Latência alta para tocar, mas suficiente para avaliar timbre. Usar a própria interface como saída padrão do Windows costuma reduzir a latência de saída.',
   'diag.copyReport': 'Copiar relatório',
   'diag.copied': 'Relatório copiado. Cole na conversa.',
   'diag.errorPrefix': 'Erro',

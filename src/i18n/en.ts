@@ -38,9 +38,13 @@ export const en: Messages = {
   'diag.roleProcessed': 'processed',
   'diag.devicePreset': 'Expected mapping',
   'diag.none': 'None',
-  'diag.verdictOk': '{n} channels arriving. Nano channels 3/4 are reachable.',
-  'diag.verdictTwo':
-    'Only {n} channel(s) arriving. The browser is not delivering channels 3/4. See the README for workarounds (VoiceMeeter or driver routing).',
+  'diag.verdictAll': 'All {n} channels advertised by the device reach the browser.',
+  'diag.verdictPartial': '{n} of {max} channels advertised by the device are arriving.',
+  'diag.verdictMapping':
+    'Only {n} channel(s) arriving, but the selected mapping needs channel {need}. See the README for workarounds (VoiceMeeter or driver routing).',
+  'diag.verdictMappingOk': 'The selected mapping (up to channel {need}) is reachable.',
+  'diag.latencyHigh':
+    'Latency is high for playing, but fine for judging tone. Setting the interface itself as the Windows default output usually lowers output latency.',
   'diag.copyReport': 'Copy report',
   'diag.copied': 'Report copied. Paste it in the chat.',
   'diag.errorPrefix': 'Error',

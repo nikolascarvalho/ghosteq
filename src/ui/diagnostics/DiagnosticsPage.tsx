@@ -32,7 +32,7 @@ export function DiagnosticsPage() {
   const [permission, setPermission] = useState(false);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState('');
-  const [presetId, setPresetId] = useState('nano-cortex');
+  const [presetId, setPresetId] = useState('');
   const [input, setInput] = useState<LiveInput | null>(null);
   const [probeChannels, setProbeChannels] = useState<number | null>(null);
   const [levels, setLevels] = useState<number[]>([]);
@@ -95,6 +95,13 @@ export function DiagnosticsPage() {
       showError(err);
     }
   };
+
+  // Escolhe o mapeamento automaticamente pelo nome do dispositivo
+  // (ex.: "Nano Cortex" -> preset Nano 3/4; Focusrite etc. -> nenhum).
+  useEffect(() => {
+    const label = devices.find((d) => d.deviceId === deviceId)?.label ?? '';
+    setPresetId(/nano|cortex|neural/i.test(label) ? 'nano-cortex' : '');
+  }, [deviceId, devices]);
 
   // Fecha o dispositivo ao sair da página.
   useEffect(() => {
@@ -182,7 +189,22 @@ export function DiagnosticsPage() {
     }
   };
 
+  // Veredito: compara o que chegou com o que o dispositivo anuncia e,
+  // separadamente, com o que o mapeamento escolhido (ex.: Nano 3/4) precisa.
   const verdictN = probeChannels ?? input?.settings.channelCount ?? null;
+  const needed = preset?.usb ? Math.max(preset.usb.di ?? 0, ...(preset.usb.processed ?? [])) : 0;
+  const verdicts: { cls: 'ok' | 'warn'; text: string }[] = [];
+  if (verdictN != null) {
+    if (capsChannels != null && verdictN < capsChannels)
+      verdicts.push({ cls: 'warn', text: t('diag.verdictPartial', { n: verdictN, max: capsChannels }) });
+    else verdicts.push({ cls: 'ok', text: t('diag.verdictAll', { n: verdictN }) });
+    if (needed > 0)
+      verdicts.push(
+        verdictN >= needed
+          ? { cls: 'ok', text: t('diag.verdictMappingOk', { need: needed }) }
+          : { cls: 'warn', text: t('diag.verdictMapping', { n: verdictN, need: needed }) },
+      );
+  }
 
   return (
     <main className="page">
@@ -247,11 +269,11 @@ export function DiagnosticsPage() {
       {input && (
         <section className="card">
           <h2>{t('diag.step3')}</h2>
-          {verdictN != null && (
-            <p className={verdictN >= 4 ? 'ok' : 'warn'}>
-              {verdictN >= 4 ? t('diag.verdictOk', { n: verdictN }) : t('diag.verdictTwo', { n: verdictN })}
+          {verdicts.map((v) => (
+            <p key={v.text} className={v.cls}>
+              {v.text}
             </p>
-          )}
+          ))}
           <dl className="facts">
             <dt>{t('diag.channelsReal')}</dt>
             <dd>{probeChannels ?? t('diag.measuring')}</dd>
@@ -276,6 +298,7 @@ export function DiagnosticsPage() {
               <strong>{fmt(ms(total), ' ms')}</strong>
             </dd>
           </dl>
+          {total != null && total > 0.03 && <p className="muted small">{t('diag.latencyHigh')}</p>}
 
           <h3>{t('diag.meters')}</h3>
           <p className="muted small">{t('diag.meterHint')}</p>
