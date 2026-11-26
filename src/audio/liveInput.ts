@@ -98,7 +98,7 @@ export async function openLiveInput(deviceId: string): Promise<LiveInput> {
   }
 
   let closed = false;
-  let capabilities: MediaTrackCapabilities | null = null;
+  let capabilities: MediaTrackCapabilities | null;
   try {
     capabilities = track.getCapabilities?.() ?? null;
   } catch {
@@ -128,7 +128,10 @@ export async function openLiveInput(deviceId: string): Promise<LiveInput> {
 }
 
 /** Pico e RMS (em dBFS) de um analisador. */
-export function readLevel(a: AnalyserNode, buf: Float32Array<ArrayBuffer>): { peakDb: number; rmsDb: number } {
+export function readLevel(
+  a: AnalyserNode,
+  buf: Float32Array<ArrayBuffer>,
+): { peakDb: number; rmsDb: number } {
   a.getFloatTimeDomainData(buf);
   let peak = 0;
   let sum = 0;

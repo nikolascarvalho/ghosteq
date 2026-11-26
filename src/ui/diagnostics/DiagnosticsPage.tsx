@@ -32,7 +32,8 @@ export function DiagnosticsPage() {
   const [permission, setPermission] = useState(false);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState('');
-  const [presetId, setPresetId] = useState('');
+  // null = automático pelo nome do dispositivo; string = escolha manual do usuário.
+  const [presetOverride, setPresetOverride] = useState<string | null>(null);
   const [input, setInput] = useState<LiveInput | null>(null);
   const [probeChannels, setProbeChannels] = useState<number | null>(null);
   const [levels, setLevels] = useState<number[]>([]);
@@ -42,6 +43,10 @@ export function DiagnosticsPage() {
   const maxPeaks = useRef<number[]>(new Array(MAX_CHANNELS).fill(-Infinity));
 
   const secure = window.isSecureContext && !!navigator.mediaDevices;
+
+  // Mapeamento automático pelo nome (ex.: "Nano Cortex" -> Nano 3/4; Focusrite -> nenhum).
+  const deviceLabel = devices.find((d) => d.deviceId === deviceId)?.label ?? '';
+  const presetId = presetOverride ?? (/nano|cortex|neural/i.test(deviceLabel) ? 'nano-cortex' : '');
 
   const showError = useCallback(
     (err: unknown) => {
@@ -95,13 +100,6 @@ export function DiagnosticsPage() {
       showError(err);
     }
   };
-
-  // Escolhe o mapeamento automaticamente pelo nome do dispositivo
-  // (ex.: "Nano Cortex" -> preset Nano 3/4; Focusrite etc. -> nenhum).
-  useEffect(() => {
-    const label = devices.find((d) => d.deviceId === deviceId)?.label ?? '';
-    setPresetId(/nano|cortex|neural/i.test(label) ? 'nano-cortex' : '');
-  }, [deviceId, devices]);
 
   // Fecha o dispositivo ao sair da página.
   useEffect(() => {
@@ -175,7 +173,12 @@ export function DiagnosticsPage() {
       sourceNodeChannelCount: input.source.channelCount,
       measuredChannels: probeChannels,
       contextSampleRate: input.ctx.sampleRate,
-      latencyMs: { base: ms(latency.base), output: ms(latency.output), input: ms(latency.input), total: ms(total) },
+      latencyMs: {
+        base: ms(latency.base),
+        output: ms(latency.output),
+        input: ms(latency.input),
+        total: ms(total),
+      },
       maxPeakDbPerChannel: maxPeaks.current
         .slice(0, shownChannels)
         .map((v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null)),
@@ -229,7 +232,14 @@ export function DiagnosticsPage() {
         <h2>{t('diag.step2')}</h2>
         {permission && devices.length === 0 && <p>{t('diag.noDevices')}</p>}
         <div className="row">
-          <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)} disabled={!permission}>
+          <select
+            value={deviceId}
+            onChange={(e) => {
+              setDeviceId(e.target.value);
+              setPresetOverride(null);
+            }}
+            disabled={!permission}
+          >
             {devices.map((d) => (
               <option key={d.deviceId} value={d.deviceId}>
                 {d.label || d.deviceId}
@@ -243,7 +253,7 @@ export function DiagnosticsPage() {
         <div className="row">
           <label>
             {t('diag.devicePreset')}{' '}
-            <select value={presetId} onChange={(e) => setPresetId(e.target.value)}>
+            <select value={presetId} onChange={(e) => setPresetOverride(e.target.value)}>
               <option value="">{t('diag.none')}</option>
               {DEVICE_PRESETS.filter((d) => d.usb).map((d) => (
                 <option key={d.id} value={d.id}>

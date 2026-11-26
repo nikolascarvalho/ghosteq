@@ -49,8 +49,7 @@ export const en: Messages = {
   'diag.copied': 'Report copied. Paste it in the chat.',
   'diag.errorPrefix': 'Error',
   'diag.errNotAllowed': 'Permission denied. Allow the microphone via the padlock in the address bar.',
-  'diag.errNotReadable':
-    'The device is busy. Close DAWs/apps using it in exclusive mode and try again.',
+  'diag.errNotReadable': 'The device is busy. Close DAWs/apps using it in exclusive mode and try again.',
   'diag.errOverconstrained': 'The device rejected the requested settings.',
   'diag.errInsecure': 'This page needs HTTPS (or localhost) to access audio.',
   'diag.noMonitor': 'Input is not sent to the speakers (no feedback risk).',

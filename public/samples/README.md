@@ -11,13 +11,13 @@ Três arquivos, gravados pela saída **USB 3/4 do Nano Cortex** com:
 
 Formato esperado:
 
-| Item | Valor |
-|---|---|
-| Container | WAV (PCM 16/24-bit ou 32-bit float) |
-| Sample rate | 48 kHz |
-| Canais | mono ou estéreo (estéreo é somado para mono no preview) |
-| Duração | 10–20 s, de preferência com começo e fim que emendem (loop) |
-| Nível | normalizado a pico de **-1 dBFS** |
+| Item        | Valor                                                       |
+| ----------- | ----------------------------------------------------------- |
+| Container   | WAV (PCM 16/24-bit ou 32-bit float)                         |
+| Sample rate | 48 kHz                                                      |
+| Canais      | mono ou estéreo (estéreo é somado para mono no preview)     |
+| Duração     | 10–20 s, de preferência com começo e fim que emendem (loop) |
+| Nível       | normalizado a pico de **-1 dBFS**                           |
 
 Coloque os arquivos nesta pasta com exatamente esses nomes; o app os encontra automaticamente.
 

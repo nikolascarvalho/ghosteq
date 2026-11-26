@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl';
@@ -15,5 +16,9 @@ export default defineConfig({
   build: {
     // AudioWorklets precisam ser arquivos de verdade, não "data:" embutido.
     assetsInlineLimit: (file) => (file.endsWith('.worklet.js') ? false : undefined),
+  },
+  test: {
+    include: ['tests/**/*.test.ts'],
+    environment: 'node',
   },
 });
