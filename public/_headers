@@ -1,0 +1,23 @@
+# Cabeçalhos HTTP aplicados pelo Cloudflare Pages (este arquivo vai para dist/).
+
+# Arquivos que mudam a cada deploy: o navegador sempre revalida, senão a PWA
+# poderia ficar presa numa versão velha.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Arquivos com hash no nome (assets/index-AbC123.js): podem ficar em cache "para sempre".
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Segurança básica. Microfone só para o próprio site (modo ao vivo / diagnóstico).
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: microphone=(self), camera=(), geolocation=(), payment=()

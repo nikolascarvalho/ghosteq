@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 8 (PWA). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt, caixa + EQ, exportação do WAV, escuta A/B ao vivo, app instalável e offline. Próximo: deploy.
+> **Status:** MVP completo (etapas 0–9): editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt, caixa + EQ, exportação do WAV, escuta A/B ao vivo, app instalável e offline, deploy no Cloudflare Pages.
 
 ---
 
@@ -48,6 +48,57 @@ Na primeira vez o navegador vai mostrar **"Sua conexão não é particular"**. �
 2. `npm run dev` no PC e copie o endereço `Network: https://192.168.x.x:5173/`.
 3. Abra esse endereço no celular e aceite o aviso de certificado.
 4. Se não abrir: o Firewall do Windows pode estar bloqueando o Node. Na primeira execução o Windows pergunta; marque **Redes privadas** e permita. Confira também se a rede do Windows está como "Privada", não "Pública".
+
+---
+
+## Deploy (GitHub + Cloudflare Pages)
+
+O GhostEQ é um **site estático**: o build (`npm run build`) gera a pasta `dist/` com HTML, JS e ícones, e qualquer hospedagem de arquivos serve. Não há servidor nem banco. Usamos o **Cloudflare Pages** (grátis, HTTPS automático, banda ilimitada) ligado ao GitHub. Funciona como um pipeline de CI/CD: cada `git push` dispara um build na nuvem e publica.
+
+### 1. Repositório no GitHub (uma vez)
+
+1. Em <https://github.com/new>: nome `ghosteq`, **Private**, e **sem** README, .gitignore ou licença (o projeto já tem os arquivos).
+2. Na pasta `ghosteq/`:
+   ```powershell
+   git remote add origin https://github.com/SEU_USUARIO/ghosteq.git
+   ```
+   ```powershell
+   git push -u origin main
+   ```
+   Na primeira vez o Windows abre o navegador para você entrar no GitHub (Git Credential Manager).
+3. Na aba **Actions** do repositório roda o **CI** (lint → formatação → typecheck → testes → build). O esperado é um ✓ verde em ~1–2 min.
+
+### 2. Cloudflare Pages (uma vez)
+
+1. Em <https://dash.cloudflare.com> (conta grátis): **Workers & Pages → Create → Pages → Connect to Git** (os nomes dos menus podem variar um pouco).
+2. Autorize o app do Cloudflare no GitHub **dando acesso ao repositório `ghosteq`** (por ser privado, precisa marcar explicitamente).
+3. Configuração do build:
+
+   | Campo                  | Valor              |
+   | ---------------------- | ------------------ |
+   | Production branch      | `main`             |
+   | Framework preset       | `None` (ou `Vite`) |
+   | Build command          | `npm run build`    |
+   | Build output directory | `dist`             |
+   | Root directory         | _(vazio)_          |
+
+   A versão do Node (22) vem do arquivo `.node-version`.
+
+4. **Save and Deploy.** Em ~1–2 min o app está em `https://ghosteq.pages.dev` (ou um nome parecido, se esse já existir).
+
+### 3. Dia a dia
+
+- `git push` na `main` → o Cloudflare publica a versão nova em produção. Quem tem o app aberto vê "Nova versão → Atualizar".
+- **Preview por branch:** qualquer outra branch vira um site de teste próprio, sem mexer na produção:
+  ```powershell
+  git switch -c teste-novo-modo
+  ```
+  ```powershell
+  git push -u origin teste-novo-modo
+  ```
+  O endereço aparece no painel do Cloudflare (algo como `https://teste-novo-modo.ghosteq.pages.dev`).
+- `public/_headers` controla o cache: `index.html`, `sw.js` e o manifest sempre são revalidados, e os arquivos com hash no nome ficam em cache por 1 ano. Também restringe o microfone ao próprio site.
+- Rotas como `/diagnostico` funcionam porque, sem um `404.html`, o Cloudflare Pages entrega o `index.html` para qualquer caminho (modo SPA).
 
 ---
 
