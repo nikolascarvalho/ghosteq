@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 1 (núcleo DSP + testes). Já existe o diagnóstico de entrada ao vivo; o editor de EQ vem nas próximas etapas.
+> **Status:** etapa 3 (estado + worker de DSP). Já existem o núcleo DSP, a leitura/escrita de WAV e presets, e o diagnóstico de entrada; a interface do editor vem na etapa 4.
 
 ---
 
@@ -108,6 +108,14 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
   - `presetsDb.ts`: guarda presets no **IndexedDB**, o banco embutido do navegador, que fica no aparelho e nunca vai para servidor. Ao carregar, passa pela mesma migração/validação.
   - `fileName.ts`: nome automático do WAV, ex.: `EQ_3k-5dB_+9dB_Nano1024.wav` (as 3 bandas de maior impacto, o ganho de saída e o aparelho com o tamanho).
   - `files.ts`: download de arquivo gerado no navegador e leitura de arquivo escolhido pelo usuário.
+- **`src/workers/`** — Cálculo pesado fora da thread da tela. Um **Web Worker** é uma segunda thread do navegador: a interface manda a curva (JSON) e recebe o IR pronto, sem travar animações nem arrastos. Analogia: a UI é o driver e o worker é um executor de jobs.
+  - `irEngine.ts`: função pura `computeIr(curva)` → IR final, curva alvo, curva real, desvios por banda (marca "imprecisa" acima de 3 dB) e formato de exportação. Roda igual no worker, nos testes e no `make-test-irs`.
+  - `dsp.worker.ts`: o worker em si, só uma casca em volta do `computeIr`. Os arrays voltam "transferidos" (movidos sem cópia).
+  - `dspClient.ts`: no máximo **um cálculo a cada ~30 ms, sempre com o estado mais recente**. Durante um arrasto o gráfico atualiza ~30×/s; respostas atrasadas de pedidos antigos são descartadas ("último vence"). Um _debounce_ puro foi descartado porque, com o dedo arrastando sem parar, ele só calcularia ao soltar.
+- **`src/state/`** — Estado global com **Zustand** (um "store": um objeto observável que os componentes leem e assinam).
+  - `curveStore.ts`: a **fonte da verdade**, a `CurveConfig`. Todo o resto é derivado dela, como uma view materializada recalculada a partir da tabela base. Tem desfazer/refazer: um arrasto inteiro (`beginGesture` → várias atualizações → `endGesture`) vira **uma** entrada no histórico. A curva atual fica salva no `localStorage`, então recarregar a página não perde o trabalho; ao recarregar, ela passa pela mesma validação dos presets.
+  - `history.ts`: desfazer/refazer como funções puras (lista `past`/`future`, limite de 100), como _time travel_ de uma tabela Delta.
+  - `irStore.ts`: guarda o último resultado do worker (cache derivado) e liga curva → worker → resultado (`startIrSync`, chamado no `main.tsx`). `flushIr()` força o cálculo imediato, por exemplo antes de exportar.
 - **`tests/`** — Testes Vitest espelhando `src/`. `tests/integration/` simula o modeler: convolui ruído branco com o IR e mede, só pela entrada e saída, se a curva aplicada é a esperada.
 - **`src/ui/`** — Componentes React: só desenham a tela e repassam cliques. Nenhuma conta de DSP mora aqui.
 

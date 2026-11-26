@@ -52,3 +52,16 @@ export const DEFAULT_DEVICE_ID = 'nano-cortex';
 export function getDevicePreset(id: string): DevicePreset {
   return DEVICE_PRESETS.find((d) => d.id === id) ?? DEVICE_PRESETS[0]!;
 }
+
+/**
+ * Aparelho efetivo de uma curva: o preset, ou, no "Customizado", o preset com
+ * sample rate/tamanho escolhidos pelo usuário.
+ */
+export function resolveDevice(
+  devicePresetId: string,
+  custom?: { sampleRate: number; irLength: number },
+): DevicePreset {
+  const preset = getDevicePreset(devicePresetId);
+  if (preset.id === 'custom' && custom) return { ...preset, ...custom };
+  return preset;
+}

@@ -126,6 +126,19 @@ export function validateCurve(raw: Record<string, unknown>): ParseResult<CurveCo
   const clampedGain = clamp(outputGainDb, LIMITS.outputGainDb);
   if (clampedGain !== outputGainDb) warnings.push('Ganho de saída fora da faixa foi ajustado.');
 
+  let customDevice: CurveConfig['customDevice'];
+  if (isObject(raw.customDevice)) {
+    const { sampleRate, irLength } = raw.customDevice;
+    if (isNum(sampleRate) && isNum(irLength)) {
+      customDevice = {
+        sampleRate: Math.round(clamp(sampleRate, LIMITS.customSampleRate)),
+        irLength: Math.round(clamp(irLength, LIMITS.customIrLength)),
+      };
+    } else {
+      warnings.push('customDevice inválido foi ignorado.');
+    }
+  }
+
   const curve: CurveConfig = {
     schemaVersion: CURVE_SCHEMA_VERSION,
     mode: mode as CurveConfig['mode'],
@@ -133,6 +146,7 @@ export function validateCurve(raw: Record<string, unknown>): ParseResult<CurveCo
     outputGainDb: clampedGain,
     devicePresetId: raw.devicePresetId as string,
     ...(isObject(raw.modeState) ? { modeState: raw.modeState } : {}),
+    ...(customDevice ? { customDevice } : {}),
   };
   return { ok: true, value: curve, warnings };
 }

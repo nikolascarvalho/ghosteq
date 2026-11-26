@@ -34,7 +34,15 @@ export const LIMITS = {
   q: { min: 0.025, max: 40 },
   outputGainDb: { min: -36, max: 36 },
   maxBands: 64,
+  customSampleRate: { min: 8000, max: 192000 },
+  customIrLength: { min: 64, max: 65536 },
 } as const;
+
+/** Parâmetros do aparelho "Customizado" (sample rate e tamanho livres). */
+export interface CustomDevice {
+  sampleRate: number;
+  irLength: number;
+}
 
 /**
  * Configuração completa de uma curva. Serializada como JSON nos presets.
@@ -48,6 +56,36 @@ export interface CurveConfig {
   modeState?: Record<string, unknown>;
   outputGainDb: number;
   devicePresetId: string;
+  /** Usado só quando devicePresetId = 'custom'. */
+  customDevice?: CustomDevice;
+}
+
+/**
+ * Layout inicial do modo paramétrico: 7 bandas que não alteram nada até o
+ * usuário mexer (peaks/shelves em 0 dB, HPF/LPF desligados) → IR flat.
+ */
+export function defaultParametricBands(): Band[] {
+  const b = (id: string, type: Band['type'], freq: number, q: number, enabled = true): Band => ({
+    id,
+    type,
+    freq,
+    gainDb: 0,
+    q,
+    enabled,
+  });
+  return [
+    b('hpf', 'hpf12', 80, Math.SQRT1_2, false),
+    b('low', 'lowshelf', 120, Math.SQRT1_2),
+    b('lowmid', 'peak', 400, 1),
+    b('mid', 'peak', 1000, 1),
+    b('highmid', 'peak', 3000, 1),
+    b('high', 'highshelf', 6000, Math.SQRT1_2),
+    b('lpf', 'lpf12', 10000, Math.SQRT1_2, false),
+  ];
+}
+
+export function defaultCurve(devicePresetId: string): CurveConfig {
+  return { ...flatCurve(devicePresetId), bands: defaultParametricBands() };
 }
 
 export function flatCurve(devicePresetId: string): CurveConfig {
