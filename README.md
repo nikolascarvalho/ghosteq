@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 5 (modos de EQ). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack e tilt, com exportação do WAV. Próximos: caixa + EQ, modo ao vivo, PWA.
+> **Status:** etapa 6 (caixa + EQ). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt e junção com IR de caixa, com exportação do WAV. Próximos: modo ao vivo, PWA, deploy.
 
 ---
 
@@ -114,12 +114,13 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
   - `fileName.ts`: nome automático do WAV, ex.: `EQ_3k-5dB_+9dB_Nano1024.wav` (as 3 bandas de maior impacto, o ganho de saída e o aparelho com o tamanho).
   - `files.ts`: download de arquivo gerado no navegador e leitura de arquivo escolhido pelo usuário.
 - **`src/workers/`** — Cálculo pesado fora da thread da tela. Um **Web Worker** é uma segunda thread do navegador: a interface manda a curva (JSON) e recebe o IR pronto, sem travar animações nem arrastos. Analogia: a UI é o driver e o worker é um executor de jobs.
-  - `irEngine.ts`: função pura `computeIr(curva)` → IR final, curva alvo, curva real, desvios por banda (marca "imprecisa" acima de 3 dB) e formato de exportação. Roda igual no worker, nos testes e no `make-test-irs`.
+  - `irEngine.ts`: função pura `computeIr(curva, caixa?)` → IR final, curva alvo, curva real, desvios por banda (marca "imprecisa" acima de 3 dB) e formato de exportação. Roda igual no worker, nos testes e no `make-test-irs`. **Com caixa:** a caixa é cortada no trecho necessário, convertida para a taxa do aparelho (resample), passada pela mesma cascata de biquads do EQ (o que equivale a convoluir caixa × EQ), recebe o ganho de saída e é cortada com fade no tamanho do aparelho. Saem três curvas: caixa sozinha (como o aparelho a tocaria), EQ sozinho e caixa + EQ. As curvas com caixa são suavizadas em 1/12 de oitava, porque o espectro de uma caixa tem muitos picos e vales estreitos que o ouvido não separa e que encheriam a tela de falsos avisos.
   - `dsp.worker.ts`: o worker em si, só uma casca em volta do `computeIr`. Os arrays voltam "transferidos" (movidos sem cópia).
   - `dspClient.ts`: no máximo **um cálculo a cada ~30 ms, sempre com o estado mais recente**. Durante um arrasto o gráfico atualiza ~30×/s; respostas atrasadas de pedidos antigos são descartadas ("último vence"). Um _debounce_ puro foi descartado porque, com o dedo arrastando sem parar, ele só calcularia ao soltar.
 - **`src/state/`** — Estado global com **Zustand** (um "store": um objeto observável que os componentes leem e assinam).
   - `curveStore.ts`: a **fonte da verdade**, a `CurveConfig`. Todo o resto é derivado dela, como uma view materializada recalculada a partir da tabela base. Tem desfazer/refazer: um arrasto inteiro (`beginGesture` → várias atualizações → `endGesture`) vira **uma** entrada no histórico. A curva atual fica salva no `localStorage`, então recarregar a página não perde o trabalho; ao recarregar, ela passa pela mesma validação dos presets.
   - `history.ts`: desfazer/refazer como funções puras (lista `past`/`future`, limite de 100), como _time travel_ de uma tabela Delta.
+  - `cabStore.ts`: o IR de caixa importado. Fica **fora** da curva e do desfazer, porque é um arquivo de áudio e não um ajuste. Aceita qualquer sample rate; se for estéreo, usa o canal L por padrão, com opção de média L+R. Arquivos acima de 2 s são cortados. A caixa fica salva no IndexedDB (`io/cabDb.ts`) e volta sozinha ao recarregar a página, mas não entra nos presets `.json`.
   - `irStore.ts`: guarda o último resultado do worker (cache derivado) e liga curva → worker → resultado (`startIrSync`, chamado no `main.tsx`). `flushIr()` força o cálculo imediato, por exemplo antes de exportar.
 - **`tests/`** — Testes Vitest espelhando `src/`. `tests/integration/` simula o modeler: convolui ruído branco com o IR e mede, só pela entrada e saída, se a curva aplicada é a esperada.
 - **`src/ui/`** — Componentes React: só desenham a tela e repassam cliques. Nenhuma conta de DSP mora aqui.
@@ -128,6 +129,7 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
   - `editor/BandPanel.tsx`, `Toolbar.tsx`, `DevicePicker.tsx`, `DeviationNotice.tsx`: lista e controles das bandas, desfazer/refazer (também Ctrl+Z / Ctrl+Shift+Z), escolha do aparelho e aviso de desvio com a explicação do tamanho do IR.
   - `export/OutputPanel.tsx`: ganho de saída, medidor de pico do IR, formato (24-bit ou float, com troca forçada acima de 0 dBFS) e o botão de exportar. Na hora de exportar, o IR é recalculado com a mesma função pura do worker, então o arquivo é idêntico ao que o gráfico mostra.
   - `presets/PresetsPanel.tsx`: salvar/abrir/apagar presets no navegador e exportar/importar `.json`.
+  - `cab/CabPanel.tsx`: importar o WAV da caixa, escolher L ou média se for estéreo, ligar/desligar a caixa e ver avisos de conversão de taxa e de corte. Com caixa ativa, o gráfico mostra caixa, EQ e o combinado, e o arquivo exportado se chama `CAB+EQ_<caixa>_<ajustes>_<aparelho>.wav`.
 
 _(As camadas `dsp/`, `io/`, `state/` e `workers/` serão documentadas aqui conforme forem criadas.)_
 

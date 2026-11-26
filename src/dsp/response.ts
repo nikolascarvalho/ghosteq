@@ -67,3 +67,49 @@ export function irMagnitudeDb(
   }
   return out;
 }
+
+/**
+ * Magnitude (dB) suavizada em fração de oitava (padrão 1/12): em cada
+ * frequência, média da POTÊNCIA dos bins dentro da janela [f·2^(−k/2), f·2^(k/2)].
+ * Usada para IRs de caixa, cujo espectro é cheio de picos e vales estreitos que
+ * o ouvido não percebe individualmente (e que poluiriam o gráfico e os avisos).
+ */
+export function smoothedMagnitudeDb(
+  ir: ArrayLike<number>,
+  freqs: ArrayLike<number>,
+  fs: number,
+  fraction = 1 / 12,
+  size?: number,
+): Float64Array {
+  const n = size ?? Math.max(16384, nextPow2(ir.length) * 4);
+  const { re, im } = realFft(ir, n);
+  const half = n / 2;
+  // Soma acumulada da potência: média de qualquer faixa em O(1).
+  const cum = new Float64Array(half + 2);
+  for (let k = 0; k <= half; k++) cum[k + 1] = cum[k]! + re[k]! * re[k]! + im[k]! * im[k]!;
+  const binHz = fs / n;
+  const w = Math.pow(2, fraction / 2);
+  const out = new Float64Array(freqs.length);
+  for (let i = 0; i < freqs.length; i++) {
+    const f = freqs[i]!;
+    const lo = f / w / binHz;
+    const hi = (f * w) / binHz;
+    let power: number;
+    if (hi - lo < 2) {
+      // Janela menor que ~2 bins (grave): interpola entre os bins vizinhos em
+      // vez de "arredondar" para um só (o que desenharia uma escada no gráfico).
+      const pos = Math.min(f / binHz, half);
+      const k = Math.min(Math.floor(pos), half - 1);
+      const t = pos - k;
+      const p0 = cum[k + 1]! - cum[k]!;
+      const p1 = cum[k + 2]! - cum[k + 1]!;
+      power = p0 * (1 - t) + p1 * t;
+    } else {
+      const k0 = Math.max(0, Math.round(lo));
+      const k1 = Math.min(half, Math.round(hi));
+      power = (cum[k1 + 1]! - cum[k0]!) / (k1 - k0 + 1);
+    }
+    out[i] = 10 * Math.log10(Math.max(power, 1e-30));
+  }
+  return out;
+}

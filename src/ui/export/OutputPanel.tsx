@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { resolveDevice } from '../../config/devices';
 import { useT } from '../../i18n';
 import { exportFileName } from '../../io/fileName';
 import { downloadFile, WAV_MIME } from '../../io/files';
 import { encodeWav, type WavSampleFormat } from '../../io/wavEncode';
+import { selectCabInput, useCabStore } from '../../state/cabStore';
 import { useCurveStore } from '../../state/curveStore';
 import { useIrStore } from '../../state/irStore';
 import { computeIr } from '../../workers/irEngine';
@@ -22,8 +23,14 @@ export function OutputPanel() {
   const setPreferred = useIrStore((s) => s.setPreferredFormat);
   const [exported, setExported] = useState<string | null>(null);
 
+  // Seleciona peças estáveis (selecionar um objeto novo a cada leitura faria o
+  // React re-renderizar sem parar) e monta a entrada só quando elas mudam.
+  const cab = useCabStore((s) => s.cab);
+  const cabEnabled = useCabStore((s) => s.enabled);
+  const cabInput = useMemo(() => selectCabInput({ cab, enabled: cabEnabled }), [cab, cabEnabled]);
+  const cabName = cabEnabled ? cab?.name : undefined;
   const device = resolveDevice(curve.devicePresetId, curve.customDevice);
-  const fileName = exportFileName(curve, device);
+  const fileName = exportFileName(curve, device, { cabName });
   const peakDb = result ? 20 * Math.log10(result.peak) : null;
   const pct = (db: number) =>
     ((Math.min(METER_MAX, Math.max(METER_MIN, db)) - METER_MIN) / (METER_MAX - METER_MIN)) * 100;
@@ -32,7 +39,7 @@ export function OutputPanel() {
   const exportWav = () => {
     // Recalcula na hora com a curva ATUAL (mesma função pura do worker, então o
     // resultado é idêntico ao IR mostrado/ouvido) e evita exportar um IR atrasado.
-    const r = computeIr({ id: 0, curve, preferredFormat: preferred });
+    const r = computeIr({ id: 0, curve, preferredFormat: preferred, cab: cabInput });
     const wav = encodeWav([r.ir], { sampleRate: r.sampleRate, format: r.exportFormat.format });
     downloadFile(wav, fileName, WAV_MIME);
     setExported(fileName);

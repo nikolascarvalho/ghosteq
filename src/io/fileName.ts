@@ -48,8 +48,22 @@ function isAudible(b: Band): boolean {
 }
 
 export interface FileNameOptions {
-  /** Prefixo: "EQ" para EQ puro, "CAB+EQ" após juntar com caixa. */
+  /** Substitui o prefixo automático ("EQ", "GEQ9", "TS", "TILT…"). */
   prefix?: string;
+  /** Nome do arquivo de caixa juntado: vira "CAB+<prefixo>_<nome curto>". */
+  cabName?: string;
+}
+
+const MAX_CAB_TOKEN = 16;
+
+/** "Mesa 4x12 V30 SM57.wav" → "Mesa4x12V30SM57" (sem extensão, espaços nem acentos). */
+export function cabToken(fileName: string): string {
+  const base = fileName
+    .replace(/\.[^.]+$/, '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9-]+/g, '');
+  return base.slice(0, MAX_CAB_TOKEN) || 'cab';
 }
 
 /** Até 3 itens de maior peso, em ordem de frequência, + contagem do resto. */
@@ -117,7 +131,8 @@ function curveTokens(curve: CurveConfig): string[] {
 
 export function exportFileName(curve: CurveConfig, device: DevicePreset, opts: FileNameOptions = {}): string {
   const [defaultPrefix, ...tokens] = curveTokens(curve);
-  const parts = [opts.prefix ?? defaultPrefix!, ...tokens];
+  const prefix = opts.prefix ?? defaultPrefix!;
+  const parts = opts.cabName ? [`CAB+${prefix}`, cabToken(opts.cabName), ...tokens] : [prefix, ...tokens];
   if (Math.abs(curve.outputGainDb) >= 0.05) parts.push(formatGain(curve.outputGainDb));
   const deviceTag = `${device.shortName}${device.irLength}`;
 

@@ -738,3 +738,25 @@ fieldset.format legend {
   right: 2px;
   color: var(--warn);
 }
+
+/* ---------- Caixa (cab) ---------- */
+.curve-cab {
+  fill: none;
+  stroke: #4fd1c5;
+  stroke-width: 1.5;
+  opacity: 0.85;
+}
+.curve-combined {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 2.5;
+}
+.lg-cab::before {
+  border-top: 1.5px solid #4fd1c5;
+}
+.lg-combined::before {
+  border-top: 2.5px solid var(--warn);
+}
+.cab-info p {
+  margin: 6px 0;
+}

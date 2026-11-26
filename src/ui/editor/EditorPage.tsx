@@ -3,6 +3,7 @@ import { useT } from '../../i18n';
 import { useCurveStore } from '../../state/curveStore';
 import { useIrStore } from '../../state/irStore';
 import { isGraphicMode } from '../../model/modes';
+import { CabPanel } from '../cab/CabPanel';
 import { OutputPanel } from '../export/OutputPanel';
 import { GraphicPanel } from '../modes/GraphicPanel';
 import { ModeTabs } from '../modes/ModeTabs';
@@ -44,6 +45,7 @@ export function EditorPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const bands = useCurveStore((s) => s.curve.bands);
   const length = useIrStore((s) => s.result?.length);
+  const hasCab = useIrStore((s) => !!s.result?.cabDb);
   useUndoShortcuts();
 
   const mode = useCurveStore((s) => s.curve.mode);
@@ -59,8 +61,18 @@ export function EditorPage() {
       <section className="card graph-card">
         <EqGraph selectedId={selectedId} onSelect={setSelected} editable={parametric} />
         <div className="legend small">
-          <span className="lg lg-target">{t('editor.legendTarget')}</span>
-          <span className="lg lg-real">{t('editor.legendReal', { n: length ?? '…' })}</span>
+          {hasCab ? (
+            <>
+              <span className="lg lg-cab">{t('editor.legendCab')}</span>
+              <span className="lg lg-target">{t('editor.legendEq')}</span>
+              <span className="lg lg-combined">{t('editor.legendCombined')}</span>
+            </>
+          ) : (
+            <>
+              <span className="lg lg-target">{t('editor.legendTarget')}</span>
+              <span className="lg lg-real">{t('editor.legendReal', { n: length ?? '…' })}</span>
+            </>
+          )}
           <span className="lg lg-dev">{t('editor.legendDeviation')}</span>
         </div>
         <p className="muted small">{t(parametric ? 'editor.graphHint' : 'mode.readonlyGraph')}</p>
@@ -76,6 +88,7 @@ export function EditorPage() {
         <OutputPanel />
       </div>
 
+      <CabPanel />
       <PresetsPanel />
     </main>
   );

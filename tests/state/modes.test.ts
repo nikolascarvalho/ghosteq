@@ -70,6 +70,12 @@ describe('troca de modos no store', () => {
     expect(s().curve.modeState!.tilt!.tiltDb).toBe(3);
   });
 
+  it('gráfico flat → paramétrico volta ao layout padrão (sem 31 pontos inúteis)', () => {
+    s().setMode('graphic31');
+    s().setMode('parametric');
+    expect(s().curve.bands.map((b) => b.id)).toEqual(defaultCurve('nano-cortex').bands.map((b) => b.id));
+  });
+
   it('trocar de modo é desfazível', () => {
     s().setMode('graphic31');
     expect(s().curve.mode).toBe('graphic31');

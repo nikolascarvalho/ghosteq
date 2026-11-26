@@ -53,6 +53,35 @@ export const ptBR = {
   'tilt.hint':
     'Inclina o espectro inteiro em torno do pivô: para + fica mais brilhante (agudo sobe, grave desce); para − fica mais escuro.',
 
+  'cab.title': 'Juntar com IR de caixa',
+  'cab.intro':
+    'Carregue o IR da sua caixa (WAV) e o GhostEQ gera UM arquivo com caixa + EQ. Assim o bloco de IR faz as duas coisas e você economiza mais um slot.',
+  'cab.choose': 'Escolher WAV da caixa',
+  'cab.replace': 'Trocar caixa',
+  'cab.remove': 'Remover caixa',
+  'cab.use': 'Usar a caixa no IR exportado',
+  'cab.info': '{name} · {sr} kHz · {ch} · {ms} ms',
+  'cab.mono': 'mono',
+  'cab.stereo': 'estéreo',
+  'cab.stereoWarn': 'Arquivo estéreo: o IR do aparelho é mono. Escolha como converter:',
+  'cab.left': 'Usar só o canal L',
+  'cab.mix': 'Média de L + R',
+  'cab.resampleNote': 'A caixa está em {from} kHz e será convertida para {to} kHz (taxa do aparelho).',
+  'cab.truncNote':
+    'A caixa tem {n} amostras; o aparelho usa {len}. O final é cortado (com fade), como o próprio aparelho faria.',
+  'cab.trimmedNote': 'Arquivo muito longo: só os primeiros {s} s foram usados.',
+  'cab.err.not-riff': 'O arquivo não é um WAV.',
+  'cab.err.no-fmt': 'WAV inválido (sem cabeçalho de formato).',
+  'cab.err.no-data': 'WAV inválido (sem dados de áudio).',
+  'cab.err.unsupported-format': 'Formato de WAV não suportado ({detail}).',
+  'cab.err.empty': 'O WAV está vazio.',
+  'cab.err.unknown': 'Não foi possível ler o arquivo ({detail}).',
+  'cab.notInPresets':
+    'A caixa fica salva neste navegador, mas não entra nos presets .json (só a curva de EQ).',
+  'editor.legendCab': 'Caixa (no aparelho)',
+  'editor.legendEq': 'EQ',
+  'editor.legendCombined': 'Caixa + EQ (real)',
+
   'band.none': 'Toque num ponto do gráfico ou numa banda da lista para editar.',
   'band.type': 'Tipo',
   'band.freq': 'Frequência',

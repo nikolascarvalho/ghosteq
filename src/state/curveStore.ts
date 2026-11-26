@@ -12,6 +12,7 @@ import { fitGraphic, type ModeStates } from '../dsp/modes';
 import {
   activeSpecs,
   defaultCurve,
+  defaultParametricBands,
   LIMITS,
   type Band,
   type CurveConfig,
@@ -138,7 +139,16 @@ export const useCurveStore = create<CurveState>()(
         setMode: (mode) => {
           const { curve } = get();
           if (mode === curve.mode) return;
-          if (mode === 'parametric') return commit({ ...curve, mode });
+          if (mode === 'parametric') {
+            // Sem perda: bandas peak/shelf em 0 dB não alteram nada, então podem
+            // sair (evita 31 pontos inúteis vindos do gráfico de 31 bandas).
+            const audible = curve.bands.filter(
+              (b) =>
+                !((b.type === 'peak' || b.type === 'lowshelf' || b.type === 'highshelf') && b.gainDb === 0),
+            );
+            const bands = isFlat(audible) ? defaultParametricBands() : audible;
+            return commit({ ...curve, mode, bands });
+          }
           let modeState: ModeStates = { ...curve.modeState };
           if (isGraphicMode(mode) && !isFlat(curve.bands)) {
             modeState = { ...modeState, [mode]: fitGraphic(mode, activeSpecs(curve)) };

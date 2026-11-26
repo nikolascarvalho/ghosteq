@@ -228,10 +228,18 @@ export function EqGraph({ selectedId, onSelect, editable = true }: Props) {
         ))}
 
         {/* Curvas */}
-        {result && (
+        {result && !result.cabDb && (
           <g clipPath="url(#plot-clip)">
             <path className="curve-target" d={curvePath(result.freqs, result.targetDb, v, offset)} />
             <path className="curve-real" d={curvePath(result.freqs, result.realDb, v, offset)} />
+          </g>
+        )}
+        {/* Com caixa: caixa sozinha, EQ sozinho e o resultado combinado. */}
+        {result?.cabDb && result.eqDb && (
+          <g clipPath="url(#plot-clip)">
+            <path className="curve-cab" d={curvePath(result.freqs, result.cabDb, v)} />
+            <path className="curve-target" d={curvePath(result.freqs, result.eqDb, v, offset)} />
+            <path className="curve-combined" d={curvePath(result.freqs, result.realDb, v, offset)} />
           </g>
         )}
 
@@ -248,7 +256,8 @@ export function EqGraph({ selectedId, onSelect, editable = true }: Props) {
               ),
             );
             const x = freqToX(b.freq, v);
-            const y = dbToY(Math.max(-18, Math.min(18, result.targetDb[idx]! - offset)), v);
+            const eqCurve = result.eqDb ?? result.targetDb;
+            const y = dbToY(Math.max(-18, Math.min(18, eqCurve[idx]! - offset)), v);
             const dev = deviationByBand.get(b.id);
             return (
               <g key={b.id} className="band-marker">

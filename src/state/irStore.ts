@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import type { WavSampleFormat } from '../io/wavEncode';
 import { IrClient, createWorkerTransport, type IrTransport } from '../workers/dspClient';
 import type { IrComputation } from '../workers/irEngine';
+import { selectCabInput, useCabStore } from './cabStore';
 import { useCurveStore } from './curveStore';
 
 interface IrState {
@@ -44,6 +45,7 @@ export function startIrSync(
     c.request({
       curve: useCurveStore.getState().curve,
       preferredFormat: useIrStore.getState().preferredFormat,
+      cab: selectCabInput(useCabStore.getState()),
     });
 
   request();
@@ -53,10 +55,14 @@ export function startIrSync(
   const unsubFormat = useIrStore.subscribe((s, prev) => {
     if (s.preferredFormat !== prev.preferredFormat) request();
   });
+  const unsubCab = useCabStore.subscribe((s, prev) => {
+    if (s.cab !== prev.cab || s.enabled !== prev.enabled) request();
+  });
 
   return () => {
     unsubCurve();
     unsubFormat();
+    unsubCab();
     c.dispose();
     if (client === c) client = null;
   };
