@@ -183,3 +183,5 @@ O usuário testa no Chrome e no Edge (Windows) com o Nano Cortex e reporta. Se s
 7. Repositório privado, sem arquivo de licença por enquanto.
 8. Projeto vive na subpasta `ghosteq/` (a pasta-mãe tem arquivos não relacionados).
 9. Bibliotecas pequenas aprovadas: `wouter` (rotas), `idb-keyval` (IndexedDB). i18n é solução própria.
+10. TypeScript fixado em 6.0.x: o TypeScript 7 (compilador nativo) não tem a API JS que o typescript-eslint usa. Só subir para 7 quando o typescript-eslint suportar.
+11. Resultado do spike com Focusrite Scarlett 2i2 (1ª geração), Chrome 158/Windows: 2/2 canais, 48 kHz, sem processamento de voz, latência total ~70 ms (saída 50 ms). Teste com o Nano (canais 3/4) ainda pendente.

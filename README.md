@@ -1,10 +1,10 @@
 # GhostEQ — O EQ que não ocupa slot
 
-*The EQ that takes no slot.*
+_The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 0 (diagnóstico de entrada ao vivo). O editor de EQ vem nas próximas etapas.
+> **Status:** etapa 1 (núcleo DSP + testes). Já existe o diagnóstico de entrada ao vivo; o editor de EQ vem nas próximas etapas.
 
 ---
 
@@ -12,14 +12,26 @@ GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de 
 
 Pré-requisito: Node.js 20+ (testado com Node 24). Dentro da pasta `ghosteq/`:
 
-| Comando | O que faz | O que esperar |
-|---|---|---|
-| `npm install` | Baixa as dependências para `node_modules/` (como um `pip install -r requirements.txt`). | Termina com "found 0 vulnerabilities" ou parecido. Só precisa rodar de novo quando o `package.json` mudar. |
-| `npm run dev` | Sobe o servidor de desenvolvimento com recarga automática. | Mostra `Local: https://localhost:5173/` e `Network: https://192.168.x.x:5173/`. Fica rodando até `Ctrl+C`. |
-| `npm run dev:http` | Mesmo servidor, mas em HTTP puro em `http://localhost:5174`, só no próprio PC. | Útil se o aviso de certificado atrapalhar. Não funciona no celular (fora de localhost o navegador bloqueia o áudio sem HTTPS). |
-| `npm run typecheck` | Checa os tipos do TypeScript (como um mypy rigoroso). | Sem saída = tudo certo. |
-| `npm run build` | Typecheck + gera a versão de produção em `dist/`. | Lista os arquivos gerados e "built in …ms". |
-| `npm run preview` | Serve a pasta `dist/` como em produção. | URL em `https://localhost:4173/`. |
+| Comando             | O que faz                                                                               | O que esperar                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `npm install`       | Baixa as dependências para `node_modules/` (como um `pip install -r requirements.txt`). | Termina com "found 0 vulnerabilities" ou parecido. Só precisa rodar de novo quando o `package.json` mudar.                     |
+| `npm run dev`       | Sobe o servidor de desenvolvimento com recarga automática.                              | Mostra `Local: https://localhost:5173/` e `Network: https://192.168.x.x:5173/`. Fica rodando até `Ctrl+C`.                     |
+| `npm run dev:http`  | Mesmo servidor, mas em HTTP puro em `http://localhost:5174`, só no próprio PC.          | Útil se o aviso de certificado atrapalhar. Não funciona no celular (fora de localhost o navegador bloqueia o áudio sem HTTPS). |
+| `npm run typecheck` | Checa os tipos do TypeScript (como um mypy rigoroso).                                   | Sem saída = tudo certo.                                                                                                        |
+| `npm run build`     | Typecheck + gera a versão de produção em `dist/`.                                       | Lista os arquivos gerados e "built in …ms".                                                                                    |
+| `npm run preview`   | Serve a pasta `dist/` como em produção.                                                 | URL em `https://localhost:4173/`.                                                                                              |
+
+### Testes, lint e formatação
+
+| Comando                | O que faz                                                      | O que esperar                                             |
+| ---------------------- | -------------------------------------------------------------- | --------------------------------------------------------- |
+| `npm test`             | Roda todos os testes uma vez (Vitest, equivalente ao pytest).  | `Test Files N passed` / `Tests N passed` em menos de 2 s. |
+| `npm run test:watch`   | Fica observando os arquivos e reroda os testes a cada mudança. | Útil enquanto se edita o DSP. `q` para sair.              |
+| `npm run lint`         | ESLint: procura bugs e más práticas (como flake8/ruff).        | Sem saída = tudo certo.                                   |
+| `npm run format`       | Prettier: reformata o código (como black).                     | Reescreve arquivos; rode antes de commitar.               |
+| `npm run format:check` | Só confere se está formatado (é o que o CI roda).              | "All matched files use Prettier code style!"              |
+
+O **CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) roda, a cada push, na ordem: `npm ci` → lint → format:check → typecheck → testes → build. Se qualquer etapa falhar, o push fica marcado em vermelho no GitHub.
 
 ### Por que HTTPS no dev server (e o aviso de certificado)
 
@@ -79,9 +91,35 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
 - **`src/config/`** — Dados de configuração, sem lógica. `devices.ts` lista os aparelhos (sample rate, tamanho do IR, mapeamento USB). É a "tabela de dimensão" dos aparelhos.
 - **`src/i18n/`** — Textos em PT-BR e EN. `pt-BR.ts` define as chaves (o "schema"); `en.ts` é obrigado pelo TypeScript a ter as mesmas chaves, então nunca falta tradução sem o build avisar. O hook `useT()` devolve a função `t('chave')`.
 - **`src/audio/`** — Tudo que fala com a Web Audio API (o "motor de áudio" do navegador). Por enquanto, `liveInput.ts` abre a entrada com as configurações cruas (sem cancelamento de eco, supressão de ruído ou ganho automático, que destruiriam o timbre) e monta o grafo de medição. `worklets/channel-probe.worklet.js` roda dentro da thread de áudio e conta os canais reais.
+- **`src/dsp/`** — O "motor matemático". Só funções puras (entrada → saída, sem estado global, sem tela, sem áudio do navegador), como uma biblioteca Python de transformação que se testa com pytest sem subir nada. O lint proíbe esta pasta de importar React ou usar `window`/`document`. Conteúdo:
+  - `biquad.ts`: fórmulas do _Audio EQ Cookbook_ (RBJ) que transformam "peak 3 kHz, -5 dB, Q 1,4" em 5 coeficientes. HPF/LPF de 24 dB/oitava = 2 biquads (Butterworth de 4ª ordem).
+  - `cascade.ts`: aplica uma lista de biquads em sequência a um sinal (um pipeline de transformações).
+  - `ir.ts`: gera o IR passando um impulso (1, 0, 0, …) pela cascata, corta no tamanho do aparelho e aplica um fade (meia janela de Hann) nas últimas 64 amostras para o final chegar a 0 sem "degrau".
+  - `fft.ts` / `response.ts`: FFT própria e as duas curvas do gráfico, a **alvo** (calculada pelas fórmulas) e a **real** (medida no IR truncado).
+  - `deviation.ts`: compara alvo × real e aponta as regiões com mais de 1 dB de diferença.
+  - `convolve.ts`: convolução (direta para IRs curtos, via FFT para sinais longos). Vai servir para juntar IR de caixa + EQ.
+  - `resample.ts`: muda a taxa de amostragem (ex.: IR de caixa de 44,1 kHz → 48 kHz) com sinc janelado (Kaiser). `resampleIr` corrige o ganho e preserva as "pontas" do filtro para a curva não mudar.
+  - `target.ts`: ponto de extensão da v2 ("curva desenhada → IR"), por enquanto só tipos.
+- **`tests/`** — Testes Vitest espelhando `src/`. `tests/integration/` simula o modeler: convolui ruído branco com o IR e mede, só pela entrada e saída, se a curva aplicada é a esperada.
 - **`src/ui/`** — Componentes React: só desenham a tela e repassam cliques. Nenhuma conta de DSP mora aqui.
 
-*(As camadas `dsp/`, `io/`, `state/` e `workers/` serão documentadas aqui conforme forem criadas.)*
+_(As camadas `dsp/`, `io/`, `state/` e `workers/` serão documentadas aqui conforme forem criadas.)_
+
+---
+
+## Por que 1024 amostras limitam o grave
+
+Um IR de 1024 amostras a 48 kHz dura só **~21 ms**. Um filtro "lembra" o som por um tempo que depende da frequência e da largura: quanto mais grave e mais estreito, mais longa é a "cauda" da resposta. Um corte estreito em 40 Hz, por exemplo, precisa de bem mais de 21 ms para se completar. Quando o IR é cortado, essa cauda some e o filtro fica "pela metade": a curva real no grave sai mais rasa e mais larga do que a pedida.
+
+Analogia: é como calcular uma média móvel de 30 dias tendo só 7 dias de dados. Para variações rápidas (agudos, médios) 7 dias bastam; para tendências lentas (grave) não.
+
+Na prática, com 1024 amostras:
+
+- médios e agudos (acima de ~300 Hz) ficam praticamente exatos;
+- shelves e cortes largos no grave funcionam razoavelmente;
+- cortes **estreitos** e shelves abaixo de ~150 Hz ficam imprecisos. O app mostra a curva real sobreposta à pedida e avisa quando a diferença passa de 1 dB.
+
+O Helix (2048 amostras, ~43 ms) tem o dobro de "memória" e é mais preciso no grave (há um teste automatizado que confirma isso).
 
 ---
 
