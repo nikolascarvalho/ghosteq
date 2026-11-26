@@ -4,6 +4,7 @@ import { useCurveStore } from '../../state/curveStore';
 import { useIrStore } from '../../state/irStore';
 import { isGraphicMode } from '../../model/modes';
 import { CabPanel } from '../cab/CabPanel';
+import { LivePanel } from '../live/LivePanel';
 import { OutputPanel } from '../export/OutputPanel';
 import { GraphicPanel } from '../modes/GraphicPanel';
 import { ModeTabs } from '../modes/ModeTabs';
@@ -79,6 +80,7 @@ export function EditorPage() {
       </section>
 
       <DeviationNotice />
+      <LivePanel />
 
       <div className="editor-columns">
         {parametric && <BandPanel bandId={selectedId} onSelect={setSelected} />}

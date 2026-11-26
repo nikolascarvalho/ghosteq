@@ -3,6 +3,7 @@ import { useT } from './i18n';
 import { LangSwitch } from './ui/common/LangSwitch';
 import { DiagnosticsPage } from './ui/diagnostics/DiagnosticsPage';
 import { EditorPage } from './ui/editor/EditorPage';
+import { PanicButton } from './ui/live/PanicButton';
 
 export function App() {
   const { t } = useT();
@@ -28,6 +29,7 @@ export function App() {
         <Route path="/diagnostico" component={DiagnosticsPage} />
         <Route component={EditorPage} />
       </Switch>
+      <PanicButton />
     </>
   );
 }

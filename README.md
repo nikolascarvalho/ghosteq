@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 6 (caixa + EQ). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt e junção com IR de caixa, com exportação do WAV. Próximos: modo ao vivo, PWA, deploy.
+> **Status:** etapa 7 (modo ao vivo). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt, caixa + EQ, exportação do WAV e escuta A/B ao vivo. Próximos: PWA e deploy.
 
 ---
 
@@ -91,7 +91,15 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
 
 - **`src/config/`** — Dados de configuração, sem lógica. `devices.ts` lista os aparelhos (sample rate, tamanho do IR, mapeamento USB). É a "tabela de dimensão" dos aparelhos.
 - **`src/i18n/`** — Textos em PT-BR e EN. `pt-BR.ts` define as chaves (o "schema"); `en.ts` é obrigado pelo TypeScript a ter as mesmas chaves, então nunca falta tradução sem o build avisar. O hook `useT()` devolve a função `t('chave')`.
-- **`src/audio/`** — Tudo que fala com a Web Audio API (o "motor de áudio" do navegador). Por enquanto, `liveInput.ts` abre a entrada com as configurações cruas (sem cancelamento de eco, supressão de ruído ou ganho automático, que destruiriam o timbre) e monta o grafo de medição. `worklets/channel-probe.worklet.js` roda dentro da thread de áudio e conta os canais reais.
+- **`src/audio/`** — Tudo que fala com a Web Audio API (o "motor de áudio" do navegador). O áudio é montado como um **grafo**: uma rede de nós ligados entre si, como um DAG de transformações num pipeline.
+  - `engine.ts`: o motor do modo "Ouvir". Caminho: fonte → entrada mono → **A** (original) ou **B** (ConvolverNode com o IR, `normalize = false`) → crossfade A/B de 20 ms → volume → limiter (compressor rápido) → **hard clip em −1 dBFS** → mudo → saída.
+    - O IR tocado é **o mesmo array** que vai para o WAV exportado. Trocar o IR usa dois convolvers alternados com crossfade, então não estala enquanto você arrasta uma banda.
+    - "Compensar volume no A/B" mede o RMS dos dois caminhos e iguala o B ao A (±18 dB), para julgar só o timbre; não altera o arquivo.
+    - Toda vez que o áudio liga, o volume volta a **−12 dB**. O botão de pânico (sempre visível, ou Esc) zera a saída na hora.
+    - Fontes: entrada ao vivo (as mesmas configurações cruas do diagnóstico; escolhe canal ou par, e no Nano o padrão é **3+4**), gravação do usuário (WAV/MP3… em loop) ou loops de exemplo. A saída pode ir para outro dispositivo (`setSinkId`, Chrome/Edge).
+  - `helpers.ts`: partes puras e testadas: curva do hard clip, compensação de volume, opções e padrão de canais.
+  - `exampleLoops.ts` / `placeholderLoops.ts`: os loops reais vêm de `public/samples/<estilo>.wav`. Se não existirem e o app estiver em **desenvolvimento**, um placeholder sintético é gerado na hora (cordas Karplus-Strong + saturação + "caixa"). Em produção, sem os arquivos reais, a opção avisa que falta o loop.
+  - `liveInput.ts`: abre a entrada com as configurações cruas (sem cancelamento de eco, supressão de ruído ou ganho automático, que destruiriam o timbre) e monta o grafo de medição do `/diagnostico`. `worklets/channel-probe.worklet.js` roda dentro da thread de áudio e conta os canais reais.
 - **`src/dsp/`** — O "motor matemático". Só funções puras (entrada → saída, sem estado global, sem tela, sem áudio do navegador), como uma biblioteca Python de transformação que se testa com pytest sem subir nada. O lint proíbe esta pasta de importar React ou usar `window`/`document`. Conteúdo:
   - `biquad.ts`: fórmulas do _Audio EQ Cookbook_ (RBJ) que transformam "peak 3 kHz, -5 dB, Q 1,4" em 5 coeficientes. HPF/LPF de 24 dB/oitava = 2 biquads (Butterworth de 4ª ordem).
   - `cascade.ts`: aplica uma lista de biquads em sequência a um sinal (um pipeline de transformações).

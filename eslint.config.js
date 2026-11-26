@@ -29,6 +29,13 @@ export default tseslint.config(
     },
   },
   {
+    // Motor de áudio: não conhece estado nem tela (a camada state/ é quem o comanda).
+    files: ['src/audio/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: ['react', 'react-*', '../ui/*', '../state/*'] }],
+    },
+  },
+  {
     // Camadas de baixo (model/, io/, config/) não dependem das de cima.
     files: ['src/model/**/*.ts', 'src/io/**/*.ts', 'src/config/**/*.ts'],
     rules: {

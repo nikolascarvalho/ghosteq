@@ -23,4 +23,4 @@ Coloque os arquivos nesta pasta com exatamente esses nomes; o app os encontra au
 
 ## Placeholders de desenvolvimento
 
-Enquanto os loops reais não existem, o projeto pode gerar loops **sintéticos** (corda simulada + saturação + filtro de caixa) só para desenvolvimento. Eles não representam o timbre de um amp real e não devem ir para produção. O script será adicionado na etapa do motor de áudio.
+Enquanto os loops reais não existem, o app gera loops **sintéticos** na hora (corda simulada + saturação + filtro de caixa), **só em desenvolvimento** (`npm run dev`), marcados na tela como "placeholder sintético". Eles não representam o timbre de um amp real e nunca vão para produção: na versão publicada, sem os arquivos reais, o app avisa que o loop está faltando. Não há arquivo para apagar; basta colocar os WAVs reais nesta pasta.
