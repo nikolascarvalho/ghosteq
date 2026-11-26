@@ -11,6 +11,8 @@ export interface UsbChannelMap {
 export interface DevicePreset {
   id: string;
   name: string;
+  /** Nome curto usado no nome do arquivo exportado (sem espaços). */
+  shortName: string;
   /** Sample rate em que o aparelho usa o IR. */
   sampleRate: number;
   /** Tamanho final do IR (amostras) depois que o aparelho/Cloud redimensiona. */
@@ -23,6 +25,7 @@ export const DEVICE_PRESETS: DevicePreset[] = [
   {
     id: 'nano-cortex',
     name: 'Neural DSP Nano Cortex / Quad Cortex',
+    shortName: 'Nano',
     sampleRate: 48000,
     irLength: 1024,
     usb: { processed: [3, 4], di: 1 },
@@ -31,12 +34,14 @@ export const DEVICE_PRESETS: DevicePreset[] = [
   {
     id: 'helix',
     name: 'Line 6 Helix / HX',
+    shortName: 'Helix',
     sampleRate: 48000,
     irLength: 2048,
   },
   {
     id: 'custom',
     name: 'Customizado',
+    shortName: 'Custom',
     sampleRate: 48000,
     irLength: 1024,
   },

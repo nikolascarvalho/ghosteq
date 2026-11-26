@@ -29,6 +29,16 @@ export default tseslint.config(
     },
   },
   {
+    // Camadas de baixo (model/, io/, config/) não dependem das de cima.
+    files: ['src/model/**/*.ts', 'src/io/**/*.ts', 'src/config/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: ['react', 'react-*', '../ui/*', '../state/*', '../audio/*', '../workers/*'] },
+      ],
+    },
+  },
+  {
     files: ['src/audio/worklets/**/*.js'],
     languageOptions: {
       globals: {

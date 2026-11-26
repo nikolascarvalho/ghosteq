@@ -12,14 +12,15 @@ GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de 
 
 Pré-requisito: Node.js 20+ (testado com Node 24). Dentro da pasta `ghosteq/`:
 
-| Comando             | O que faz                                                                               | O que esperar                                                                                                                  |
-| ------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `npm install`       | Baixa as dependências para `node_modules/` (como um `pip install -r requirements.txt`). | Termina com "found 0 vulnerabilities" ou parecido. Só precisa rodar de novo quando o `package.json` mudar.                     |
-| `npm run dev`       | Sobe o servidor de desenvolvimento com recarga automática.                              | Mostra `Local: https://localhost:5173/` e `Network: https://192.168.x.x:5173/`. Fica rodando até `Ctrl+C`.                     |
-| `npm run dev:http`  | Mesmo servidor, mas em HTTP puro em `http://localhost:5174`, só no próprio PC.          | Útil se o aviso de certificado atrapalhar. Não funciona no celular (fora de localhost o navegador bloqueia o áudio sem HTTPS). |
-| `npm run typecheck` | Checa os tipos do TypeScript (como um mypy rigoroso).                                   | Sem saída = tudo certo.                                                                                                        |
-| `npm run build`     | Typecheck + gera a versão de produção em `dist/`.                                       | Lista os arquivos gerados e "built in …ms".                                                                                    |
-| `npm run preview`   | Serve a pasta `dist/` como em produção.                                                 | URL em `https://localhost:4173/`.                                                                                              |
+| Comando                 | O que faz                                                                                       | O que esperar                                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `npm install`           | Baixa as dependências para `node_modules/` (como um `pip install -r requirements.txt`).         | Termina com "found 0 vulnerabilities" ou parecido. Só precisa rodar de novo quando o `package.json` mudar.                     |
+| `npm run dev`           | Sobe o servidor de desenvolvimento com recarga automática.                                      | Mostra `Local: https://localhost:5173/` e `Network: https://192.168.x.x:5173/`. Fica rodando até `Ctrl+C`.                     |
+| `npm run dev:http`      | Mesmo servidor, mas em HTTP puro em `http://localhost:5174`, só no próprio PC.                  | Útil se o aviso de certificado atrapalhar. Não funciona no celular (fora de localhost o navegador bloqueia o áudio sem HTTPS). |
+| `npm run typecheck`     | Checa os tipos do TypeScript (como um mypy rigoroso).                                           | Sem saída = tudo certo.                                                                                                        |
+| `npm run build`         | Typecheck + gera a versão de produção em `dist/`.                                               | Lista os arquivos gerados e "built in …ms".                                                                                    |
+| `npm run preview`       | Serve a pasta `dist/` como em produção.                                                         | URL em `https://localhost:4173/`.                                                                                              |
+| `npm run make-test-irs` | Gera WAVs de teste em `test-irs/` com o mesmo código do app (flat, corte em 3 kHz, +9 dB etc.). | Uma linha por arquivo com formato (pcm24/float32) e pico. A pasta não vai para o git.                                          |
 
 ### Testes, lint e formatação
 
@@ -100,6 +101,13 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
   - `convolve.ts`: convolução (direta para IRs curtos, via FFT para sinais longos). Vai servir para juntar IR de caixa + EQ.
   - `resample.ts`: muda a taxa de amostragem (ex.: IR de caixa de 44,1 kHz → 48 kHz) com sinc janelado (Kaiser). `resampleIr` corrige o ganho e preserva as "pontas" do filtro para a curva não mudar.
   - `target.ts`: ponto de extensão da v2 ("curva desenhada → IR"), por enquanto só tipos.
+- **`src/model/`** — O "schema" da fonte da verdade: o tipo `CurveConfig` (modo, bandas, ganho de saída, aparelho) com `schemaVersion`. Fica numa camada própria, abaixo de `state/` e `io/`, porque os dois dependem dele, como um contrato de dados compartilhado entre o job que escreve e o que lê.
+- **`src/io/`** — Entrada e saída de arquivos e do banco local:
+  - `wavEncode.ts` / `wavDecode.ts`: escrevem e leem WAV. A exportação usa 24-bit PCM por padrão e **troca sozinha para 32-bit float** quando o pico passa de 1.0, porque PCM inteiro cortaria (clip) o sinal. A leitura aceita 8/16/24/32-bit, float e o formato "extensible", e ignora chunks extras (metadados), como fazem os players.
+  - `presetsJson.ts`: salvar e abrir presets `.json`. Ao ler, aplica **migrações** de versões antigas do schema (v1 → v2 → …), igual a _schema evolution_ num data lake, e depois **valida**: tipos desconhecidos são recusados e valores fora da faixa são ajustados com aviso. Preset de versão mais nova que o app é recusado.
+  - `presetsDb.ts`: guarda presets no **IndexedDB**, o banco embutido do navegador, que fica no aparelho e nunca vai para servidor. Ao carregar, passa pela mesma migração/validação.
+  - `fileName.ts`: nome automático do WAV, ex.: `EQ_3k-5dB_+9dB_Nano1024.wav` (as 3 bandas de maior impacto, o ganho de saída e o aparelho com o tamanho).
+  - `files.ts`: download de arquivo gerado no navegador e leitura de arquivo escolhido pelo usuário.
 - **`tests/`** — Testes Vitest espelhando `src/`. `tests/integration/` simula o modeler: convolui ruído branco com o IR e mede, só pela entrada e saída, se a curva aplicada é a esperada.
 - **`src/ui/`** — Componentes React: só desenham a tela e repassam cliques. Nenhuma conta de DSP mora aqui.
 
