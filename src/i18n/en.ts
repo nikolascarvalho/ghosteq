@@ -127,6 +127,12 @@ export const en: Messages = {
   'live.err.sink': 'Could not change the output ({detail}).',
   'live.err.unknown': 'Audio error ({detail}).',
 
+  'pwa.install': 'Install app',
+  'pwa.iosHelp': 'On iPhone/iPad: tap Share (square with arrow) → "Add to Home Screen".',
+  'pwa.needRefresh': 'A new version of GhostEQ is available.',
+  'pwa.update': 'Update',
+  'pwa.offlineReady': 'Ready: GhostEQ now works offline.',
+  'pwa.dismiss': 'Close',
   'band.none': 'Tap a point on the graph or a band in the list to edit it.',
   'band.type': 'Type',
   'band.freq': 'Frequency',

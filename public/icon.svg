@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- GhostEQ: um "fantasminha" com uma curva de EQ no corpo -->
+  <rect width="512" height="512" rx="112" fill="#0f1115"/>
+  <path
+    d="M256 86c-82 0-142 62-142 146v176c0 10 11 15 19 9l30-24 31 25c6 5 14 5 20 0l31-25 31 25c6 5 14 5 20 0l31-25 31 25c6 5 14 5 20 0l30 24c8 6 19 1 19-9V232c0-84-60-146-142-146Z"
+    fill="#7c9cff"/>
+  <circle cx="206" cy="210" r="22" fill="#0f1115"/>
+  <circle cx="306" cy="210" r="22" fill="#0f1115"/>
+  <path d="M146 318c34 0 46-46 78-46s38 66 70 66 38-44 72-44" fill="none" stroke="#0f1115" stroke-width="22"
+    stroke-linecap="round"/>
+</svg>

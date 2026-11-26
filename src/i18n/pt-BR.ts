@@ -130,6 +130,12 @@ export const ptBR = {
   'live.err.sink': 'Não foi possível trocar a saída ({detail}).',
   'live.err.unknown': 'Erro de áudio ({detail}).',
 
+  'pwa.install': 'Instalar app',
+  'pwa.iosHelp': 'No iPhone/iPad: toque em Compartilhar (quadrado com seta) → "Adicionar à Tela de Início".',
+  'pwa.needRefresh': 'Nova versão do GhostEQ disponível.',
+  'pwa.update': 'Atualizar',
+  'pwa.offlineReady': 'Pronto: o GhostEQ agora funciona offline.',
+  'pwa.dismiss': 'Fechar',
   'band.none': 'Toque num ponto do gráfico ou numa banda da lista para editar.',
   'band.type': 'Tipo',
   'band.freq': 'Frequência',

@@ -1,6 +1,8 @@
 import { Link, Route, Switch, useLocation } from 'wouter';
 import { useT } from './i18n';
+import { InstallButton } from './ui/common/InstallButton';
 import { LangSwitch } from './ui/common/LangSwitch';
+import { PwaToast } from './ui/common/PwaToast';
 import { DiagnosticsPage } from './ui/diagnostics/DiagnosticsPage';
 import { EditorPage } from './ui/editor/EditorPage';
 import { PanicButton } from './ui/live/PanicButton';
@@ -23,6 +25,7 @@ export function App() {
             {t('nav.diagnostics')}
           </Link>
         </nav>
+        <InstallButton />
         <LangSwitch />
       </header>
       <Switch>
@@ -30,6 +33,7 @@ export function App() {
         <Route component={EditorPage} />
       </Switch>
       <PanicButton />
+      <PwaToast />
     </>
   );
 }

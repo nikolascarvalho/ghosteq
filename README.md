@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 7 (modo ao vivo). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt, caixa + EQ, exportação do WAV e escuta A/B ao vivo. Próximos: PWA e deploy.
+> **Status:** etapa 8 (PWA). Editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt, caixa + EQ, exportação do WAV, escuta A/B ao vivo, app instalável e offline. Próximo: deploy.
 
 ---
 
@@ -21,6 +21,8 @@ Pré-requisito: Node.js 20+ (testado com Node 24). Dentro da pasta `ghosteq/`:
 | `npm run build`         | Typecheck + gera a versão de produção em `dist/`.                                               | Lista os arquivos gerados e "built in …ms".                                                                                    |
 | `npm run preview`       | Serve a pasta `dist/` como em produção.                                                         | URL em `https://localhost:4173/`.                                                                                              |
 | `npm run make-test-irs` | Gera WAVs de teste em `test-irs/` com o mesmo código do app (flat, corte em 3 kHz, +9 dB etc.). | Uma linha por arquivo com formato (pcm24/float32) e pico. A pasta não vai para o git.                                          |
+| `npm run preview:http`  | Serve o build de produção (`dist/`) em `http://localhost:4174`, sem HTTPS.                      | Para testar a PWA/offline no próprio PC. Rode `npm run build` antes.                                                           |
+| `npm run icons`         | Regera os ícones PNG a partir de `public/icon.svg`.                                             | Lista os arquivos gerados em `public/`. Só precisa ao mudar o ícone.                                                           |
 
 ### Testes, lint e formatação
 
@@ -46,6 +48,20 @@ Na primeira vez o navegador vai mostrar **"Sua conexão não é particular"**. �
 2. `npm run dev` no PC e copie o endereço `Network: https://192.168.x.x:5173/`.
 3. Abra esse endereço no celular e aceite o aviso de certificado.
 4. Se não abrir: o Firewall do Windows pode estar bloqueando o Node. Na primeira execução o Windows pergunta; marque **Redes privadas** e permita. Confira também se a rede do Windows está como "Privada", não "Pública".
+
+---
+
+## Instalar como app (PWA) e usar offline
+
+O GhostEQ é uma **PWA** (Progressive Web App): um site que pode ser instalado como app e funciona **sem internet**. Como todo o processamento já roda no aparelho, offline ele faz tudo: editar, ouvir, juntar caixa e exportar.
+
+- **Chrome/Edge (PC) e Android:** aparece o botão **⤓ Instalar app** no topo (ou o ícone de instalar na barra de endereço). O app ganha ícone próprio e abre em janela separada.
+- **iPhone/iPad (Safari):** a Apple não permite um botão de instalar; o botão mostra as instruções (Compartilhar → "Adicionar à Tela de Início").
+- **Offline:** na primeira visita, o **service worker** guarda o app inteiro no aparelho (HTML, código, worker de DSP, worklet de áudio, ícones). Analogia: um cache local versionado de todos os artefatos do build. Aparece o aviso "Pronto: o GhostEQ agora funciona offline". Os loops de exemplo (WAVs grandes) não entram nesse pacote: ficam guardados na primeira vez que tocam.
+- **Atualizações:** quando sai um deploy novo, aparece "Nova versão disponível → Atualizar". O app nunca recarrega sozinho, para não cortar uma sessão de áudio.
+- O service worker só existe no **build de produção**. No `npm run dev` ele fica desligado, de propósito, para não servir código velho enquanto você edita. Para testar: `npm run build` e depois `npm run preview:http`.
+
+Observação: `npm audit` acusa 4 avisos "moderate" em `glob`/`minimatch`, dependências **de build** usadas só pelo gerador do service worker na sua máquina. Nada disso vai para o app publicado (`npm audit --omit=dev` = 0).
 
 ---
 
