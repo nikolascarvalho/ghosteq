@@ -2,10 +2,80 @@
 // en.ts precisa ter exatamente as mesmas chaves (o TypeScript acusa se faltar).
 export const ptBR = {
   'app.slogan': 'O EQ que não ocupa slot',
-  'app.wip': 'Em construção. Por enquanto só a página de diagnóstico está pronta.',
-  'nav.home': 'Início',
+  'nav.editor': 'Editor',
   'nav.diagnostics': 'Diagnóstico de entrada',
   'lang.label': 'Idioma',
+  'common.computing': 'calculando…',
+
+  'editor.undo': 'Desfazer',
+  'editor.redo': 'Refazer',
+  'editor.reset': 'Zerar',
+  'editor.addBand': '+ Banda',
+  'editor.graphLabel': 'Gráfico da curva de EQ',
+  'editor.graphHint':
+    'Arraste os pontos. Roda do mouse sobre um ponto, ou pinça com dois dedos, ajusta o Q (largura). Duplo clique no gráfico cria uma banda.',
+  'editor.legendTarget': 'Curva pedida',
+  'editor.legendReal': 'Curva real no aparelho ({n} amostras)',
+  'editor.legendDeviation': 'Desvio > 1 dB',
+
+  'band.none': 'Toque num ponto do gráfico ou numa banda da lista para editar.',
+  'band.type': 'Tipo',
+  'band.freq': 'Frequência',
+  'band.gain': 'Ganho',
+  'band.q': 'Q (largura)',
+  'band.enabled': 'Ligada',
+  'band.remove': 'Remover',
+  'band.list': 'Bandas',
+  'band.type.peak': 'Peak',
+  'band.type.lowshelf': 'Low shelf',
+  'band.type.highshelf': 'High shelf',
+  'band.type.hpf12': 'HPF 12 dB/oit',
+  'band.type.hpf24': 'HPF 24 dB/oit',
+  'band.type.lpf12': 'LPF 12 dB/oit',
+  'band.type.lpf24': 'LPF 24 dB/oit',
+  'band.type.notch': 'Notch',
+  'band.imprecise':
+    'Imprecisa neste aparelho: o efeito real fica {d} longe do pedido. Com {n} amostras o IR é curto demais para filtros graves/estreitos.',
+
+  'device.label': 'Aparelho',
+  'device.sampleRate': 'Sample rate',
+  'device.irLength': 'Tamanho do IR',
+  'device.summary': '{n} amostras a {sr} kHz ≈ {ms} ms',
+
+  'output.title': 'Saída e exportação',
+  'output.gain': 'Ganho de saída',
+  'output.peak': 'Pico do IR',
+  'output.format': 'Formato do WAV',
+  'output.pcm24': '24-bit PCM (padrão)',
+  'output.float32': '32-bit float',
+  'output.forcedFloat':
+    'O pico passa de 0 dBFS (amostra > 1,0). Para não clipar, o WAV será salvo em 32-bit float (já testado no Nano Cortex com +9 dB).',
+  'output.export': 'Exportar WAV',
+  'output.fileName': 'Arquivo: {name}',
+  'output.exported': 'WAV gerado: {name}',
+
+  'dev.title': 'Curva real × pedida',
+  'dev.ok': 'A curva real bate com a pedida (desvio máximo {d}).',
+  'dev.warn': 'A curva real se afasta até {d} da pedida em {range}.',
+  'dev.explainTitle': 'Por que isso acontece?',
+  'dev.explain':
+    'Um IR de {n} amostras dura só {ms} ms. Filtros graves e estreitos precisam de mais tempo para "acontecer"; ao cortar o IR nesse tamanho, parte do efeito some. Médios e agudos ficam precisos. Dicas: no grave use Q menor (mais largo) ou um shelf; aparelhos com IR maior (Helix: 2048) são mais precisos.',
+
+  'presets.title': 'Presets',
+  'presets.namePlaceholder': 'Nome do preset',
+  'presets.save': 'Salvar',
+  'presets.saved': 'Preset "{name}" salvo neste aparelho.',
+  'presets.empty': 'Nenhum preset salvo ainda.',
+  'presets.load': 'Abrir',
+  'presets.delete': 'Apagar',
+  'presets.deleteConfirm': 'Apagar o preset "{name}"? Não dá para desfazer.',
+  'presets.exportJson': 'Exportar .json',
+  'presets.importJson': 'Importar .json',
+  'presets.loaded': 'Preset "{name}" aberto.',
+  'presets.error': 'Não foi possível abrir: {msg}',
+  'presets.warnings': 'Avisos: {msg}',
+  'presets.localNote':
+    'Os presets ficam salvos só neste navegador. Use Exportar .json para levar a outro aparelho.',
 
   'diag.title': 'Diagnóstico de entrada de áudio',
   'diag.intro':

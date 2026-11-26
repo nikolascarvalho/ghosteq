@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** etapa 3 (estado + worker de DSP). Já existem o núcleo DSP, a leitura/escrita de WAV e presets, e o diagnóstico de entrada; a interface do editor vem na etapa 4.
+> **Status:** etapa 4 (editor paramétrico). Já dá para montar uma curva, ver a curva real no aparelho e exportar o WAV. Próximos: modos gráfico/tone stack/tilt, caixa + EQ, modo ao vivo, PWA.
 
 ---
 
@@ -118,6 +118,11 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
   - `irStore.ts`: guarda o último resultado do worker (cache derivado) e liga curva → worker → resultado (`startIrSync`, chamado no `main.tsx`). `flushIr()` força o cálculo imediato, por exemplo antes de exportar.
 - **`tests/`** — Testes Vitest espelhando `src/`. `tests/integration/` simula o modeler: convolui ruído branco com o IR e mede, só pela entrada e saída, se a curva aplicada é a esperada.
 - **`src/ui/`** — Componentes React: só desenham a tela e repassam cliques. Nenhuma conta de DSP mora aqui.
+  - `editor/EqGraph.tsx`: o gráfico em SVG (desenho vetorial). Mouse, dedo e caneta passam pelo mesmo caminho (**Pointer Events**). Arrastar um ponto muda frequência (x) e ganho (y); a roda do mouse sobre um ponto, ou a pinça com dois dedos, muda o Q; duplo clique cria uma banda. O arrasto inteiro vira **uma** entrada no desfazer. Faixas amarelas marcam onde a curva real se afasta mais de 1 dB da pedida, e um anel tracejado marca bandas "imprecisas neste aparelho" (acima de 3 dB).
+  - `editor/scale.ts`: conversões Hz/dB ↔ pixels (eixo X logarítmico), puras e testadas.
+  - `editor/BandPanel.tsx`, `Toolbar.tsx`, `DevicePicker.tsx`, `DeviationNotice.tsx`: lista e controles das bandas, desfazer/refazer (também Ctrl+Z / Ctrl+Shift+Z), escolha do aparelho e aviso de desvio com a explicação do tamanho do IR.
+  - `export/OutputPanel.tsx`: ganho de saída, medidor de pico do IR, formato (24-bit ou float, com troca forçada acima de 0 dBFS) e o botão de exportar. Na hora de exportar, o IR é recalculado com a mesma função pura do worker, então o arquivo é idêntico ao que o gráfico mostra.
+  - `presets/PresetsPanel.tsx`: salvar/abrir/apagar presets no navegador e exportar/importar `.json`.
 
 _(As camadas `dsp/`, `io/`, `state/` e `workers/` serão documentadas aqui conforme forem criadas.)_
 

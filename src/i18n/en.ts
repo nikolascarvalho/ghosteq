@@ -2,10 +2,80 @@ import type { Messages } from './pt-BR';
 
 export const en: Messages = {
   'app.slogan': 'The EQ that takes no slot',
-  'app.wip': 'Under construction. For now only the diagnostics page is ready.',
-  'nav.home': 'Home',
+  'nav.editor': 'Editor',
   'nav.diagnostics': 'Input diagnostics',
   'lang.label': 'Language',
+  'common.computing': 'computing…',
+
+  'editor.undo': 'Undo',
+  'editor.redo': 'Redo',
+  'editor.reset': 'Reset',
+  'editor.addBand': '+ Band',
+  'editor.graphLabel': 'EQ curve graph',
+  'editor.graphHint':
+    'Drag the points. Mouse wheel over a point, or a two-finger pinch, adjusts the Q (width). Double-click the graph to add a band.',
+  'editor.legendTarget': 'Requested curve',
+  'editor.legendReal': 'Real curve on the device ({n} samples)',
+  'editor.legendDeviation': 'Deviation > 1 dB',
+
+  'band.none': 'Tap a point on the graph or a band in the list to edit it.',
+  'band.type': 'Type',
+  'band.freq': 'Frequency',
+  'band.gain': 'Gain',
+  'band.q': 'Q (width)',
+  'band.enabled': 'On',
+  'band.remove': 'Remove',
+  'band.list': 'Bands',
+  'band.type.peak': 'Peak',
+  'band.type.lowshelf': 'Low shelf',
+  'band.type.highshelf': 'High shelf',
+  'band.type.hpf12': 'HPF 12 dB/oct',
+  'band.type.hpf24': 'HPF 24 dB/oct',
+  'band.type.lpf12': 'LPF 12 dB/oct',
+  'band.type.lpf24': 'LPF 24 dB/oct',
+  'band.type.notch': 'Notch',
+  'band.imprecise':
+    'Imprecise on this device: the real effect is {d} off the request. With {n} samples the IR is too short for low/narrow filters.',
+
+  'device.label': 'Device',
+  'device.sampleRate': 'Sample rate',
+  'device.irLength': 'IR length',
+  'device.summary': '{n} samples at {sr} kHz ≈ {ms} ms',
+
+  'output.title': 'Output and export',
+  'output.gain': 'Output gain',
+  'output.peak': 'IR peak',
+  'output.format': 'WAV format',
+  'output.pcm24': '24-bit PCM (default)',
+  'output.float32': '32-bit float',
+  'output.forcedFloat':
+    'The peak is above 0 dBFS (sample > 1.0). To avoid clipping, the WAV will be saved as 32-bit float (tested on the Nano Cortex with +9 dB).',
+  'output.export': 'Export WAV',
+  'output.fileName': 'File: {name}',
+  'output.exported': 'WAV generated: {name}',
+
+  'dev.title': 'Real vs requested curve',
+  'dev.ok': 'The real curve matches the request (max deviation {d}).',
+  'dev.warn': 'The real curve is up to {d} off the request in {range}.',
+  'dev.explainTitle': 'Why does this happen?',
+  'dev.explain':
+    'An IR of {n} samples lasts only {ms} ms. Low and narrow filters need more time to "happen"; cutting the IR at this length loses part of the effect. Mids and highs stay accurate. Tips: in the lows use a lower Q (wider) or a shelf; devices with longer IRs (Helix: 2048) are more accurate.',
+
+  'presets.title': 'Presets',
+  'presets.namePlaceholder': 'Preset name',
+  'presets.save': 'Save',
+  'presets.saved': 'Preset "{name}" saved on this device.',
+  'presets.empty': 'No saved presets yet.',
+  'presets.load': 'Open',
+  'presets.delete': 'Delete',
+  'presets.deleteConfirm': 'Delete preset "{name}"? This cannot be undone.',
+  'presets.exportJson': 'Export .json',
+  'presets.importJson': 'Import .json',
+  'presets.loaded': 'Preset "{name}" opened.',
+  'presets.error': 'Could not open: {msg}',
+  'presets.warnings': 'Warnings: {msg}',
+  'presets.localNote':
+    'Presets are stored only in this browser. Use Export .json to move them to another device.',
 
   'diag.title': 'Audio input diagnostics',
   'diag.intro':

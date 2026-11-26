@@ -37,6 +37,8 @@ export interface IrComputation {
   id: number;
   sampleRate: number;
   length: number;
+  /** Ganho de saída usado neste cálculo (o gráfico desenha a forma do EQ sem ele). */
+  outputGainDb: number;
   /** IR final (exatamente o que é exportado e usado no ConvolverNode). */
   ir: Float64Array;
   peak: number;
@@ -79,6 +81,7 @@ export function computeIr(req: IrRequest): IrComputation {
     id: req.id,
     sampleRate: fs,
     length: device.irLength,
+    outputGainDb: curve.outputGainDb,
     ir,
     peak,
     exportFormat: chooseExportFormat(peak, req.preferredFormat),
