@@ -21,8 +21,9 @@ export function rawAudioConstraints(deviceId?: string): MediaTrackConstraints {
   } as MediaTrackConstraints;
 }
 
-export function createAudioContext(): AudioContext {
-  return new AudioContext({ sampleRate: TARGET_SAMPLE_RATE, latencyHint: 'interactive' });
+/** lowLatency = latencyHint 0 (o menor buffer que o navegador aceitar). */
+export function createAudioContext(lowLatency = false): AudioContext {
+  return new AudioContext({ sampleRate: TARGET_SAMPLE_RATE, latencyHint: lowLatency ? 0 : 'interactive' });
 }
 
 /** Pede permissão uma vez (necessário para enumerateDevices devolver nomes). */
@@ -53,12 +54,12 @@ export interface LiveInput {
   close: () => Promise<void>;
 }
 
-export async function openLiveInput(deviceId: string): Promise<LiveInput> {
+export async function openLiveInput(deviceId: string, lowLatency = false): Promise<LiveInput> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: rawAudioConstraints(deviceId) });
   const track = stream.getAudioTracks()[0];
   if (!track) throw new Error('No audio track');
 
-  const ctx = createAudioContext();
+  const ctx = createAudioContext(lowLatency);
   await ctx.resume();
   const source = ctx.createMediaStreamSource(stream);
 

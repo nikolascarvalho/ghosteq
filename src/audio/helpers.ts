@@ -1,6 +1,8 @@
 // Funções puras usadas pelo motor de áudio (testáveis sem navegador).
 import type { UsbChannelMap } from '../config/devices';
 
+/** Taxa de amostragem do motor e dos aparelhos (Nano/Helix). */
+export const ENGINE_SAMPLE_RATE = 48000;
 /** Teto de saída: −1 dBFS (decisão do projeto). */
 export const OUTPUT_CEILING_DB = -1;
 /** Volume inicial toda vez que o áudio é ligado. */
@@ -12,7 +14,8 @@ export const dbToLin = (db: number) => Math.pow(10, db / 20);
 export const linToDb = (g: number) => (g > 0 ? 20 * Math.log10(g) : -Infinity);
 
 /**
- * Curva do WaveShaper que faz o "hard clip": tudo acima do teto vira o teto.
+ * Curva do WaveShaper que faz o "hard clip" (só no fallback sem AudioWorklet;
+ * o limiter normal faz o clip dentro do worklet): tudo acima do teto vira o teto.
  * O WaveShaper mapeia entrada [−1, 1] → curva; entradas além de ±1 usam as
  * pontas da curva, que já estão no teto. Resultado: nada sai acima de −1 dBFS.
  */
@@ -25,6 +28,9 @@ export function hardClipCurve(ceilingDb = OUTPUT_CEILING_DB, size = 4097): Float
   }
   return curve;
 }
+
+/** O nome do dispositivo parece ser um Neural DSP (Nano/Quad Cortex)? */
+export const isNanoLabel = (label: string) => /nano|cortex|neural/i.test(label);
 
 /** RMS de um bloco de amostras. */
 export function rms(x: ArrayLike<number>): number {

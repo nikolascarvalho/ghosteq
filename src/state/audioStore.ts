@@ -2,9 +2,11 @@
 // O motor (AudioEngine) é um objeto do navegador, não um dado: fica numa
 // variável do módulo; o store guarda só o que a tela precisa mostrar.
 import { create } from 'zustand';
-import { AudioEngine, type AB } from '../audio/engine';
+import { AudioEngine, probeOutputRate, type AB } from '../audio/engine';
 import { loadExampleLoop } from '../audio/exampleLoops';
-import { channelOptions, defaultChannelSelection, START_VOLUME_DB } from '../audio/helpers';
+import { measureGraphDelay, type GraphDelay } from '../audio/graph';
+import { channelOptions, defaultChannelSelection, isNanoLabel, START_VOLUME_DB } from '../audio/helpers';
+import { defaultLowLatency, detectPlatform, type PlatformInfo, type UaBrand } from '../audio/latency';
 import type { LoopStyle } from '../audio/placeholderLoops';
 import { DEVICE_PRESETS } from '../config/devices';
 import { useIrStore } from './irStore';
@@ -28,6 +30,14 @@ interface AudioState {
   channelSel: string;
   sinkId: string;
   trackLatency: number | null;
+  trackSampleRate: number | null;
+  /** Taxa nativa do dispositivo de saída escolhido (null = desconhecida). */
+  outputRate: number | null;
+  /** Atraso do grafo medido com impulso ao ligar (null = ainda medindo/falhou). */
+  graphDelay: GraphDelay | null;
+  /** Modo baixa latência (latencyHint 0). Lembrado no localStorage. */
+  lowLatency: boolean;
+  platform: PlatformInfo;
   error: { code: AudioErrorCode; detail: string } | null;
 
   powerOn: () => Promise<void>;
@@ -47,10 +57,35 @@ interface AudioState {
   playExample: (style: LoopStyle) => Promise<void>;
   stop: () => void;
   setSink: (id: string) => Promise<void>;
+  /** Liga/desliga a baixa latência. Exige recriar o AudioContext: reinicia o áudio. */
+  setLowLatency: (on: boolean) => Promise<void>;
 }
 
 let engine: AudioEngine | null = null;
+let starting: Promise<AudioEngine> | null = null;
 let unsubIr: (() => void) | null = null;
+
+const LOW_LATENCY_KEY = 'ghosteq.lowLatency';
+
+function readPlatform(): PlatformInfo {
+  if (typeof navigator === 'undefined') return detectPlatform('');
+  const uad = (navigator as Navigator & { userAgentData?: { brands?: UaBrand[]; platform?: string } })
+    .userAgentData;
+  return detectPlatform(navigator.userAgent, uad?.brands, uad?.platform);
+}
+
+function readLowLatency(p: PlatformInfo): boolean {
+  try {
+    const v = localStorage.getItem(LOW_LATENCY_KEY);
+    if (v === '1') return true;
+    if (v === '0') return false;
+  } catch {
+    /* sem storage: usa o padrão */
+  }
+  return defaultLowLatency(p.os);
+}
+
+const platform = readPlatform();
 
 /** Acesso ao motor para a tela desenhar espectro/medidores (null se desligado). */
 export const getEngine = () => engine;
@@ -87,17 +122,39 @@ export const useAudioStore = create<AudioState>()((set, get) => ({
   channelSel: '1+2',
   sinkId: '',
   trackLatency: null,
+  trackSampleRate: null,
+  outputRate: null,
+  graphDelay: null,
+  lowLatency: readLowLatency(platform),
+  platform,
   error: null,
 
   powerOn: async () => {
     if (engine) return;
-    engine = new AudioEngine();
-    await engine.resume();
+    if (starting) {
+      await starting.catch(() => undefined);
+      return;
+    }
+    starting = AudioEngine.create({ lowLatency: get().lowLatency });
+    let e: AudioEngine;
+    try {
+      e = await starting;
+    } catch (err) {
+      set({ error: errorOf(err) });
+      return;
+    } finally {
+      starting = null;
+    }
+    engine = e;
+    await e.resume();
+    // Saída escolhida antes (setSinkId) vale também para o contexto novo.
+    const sinkId = get().sinkId;
+    if (sinkId) await e.setSinkId(sinkId).catch(() => set({ sinkId: '' }));
     // Toda vez que liga: volume em −12 dB, sem mudo, ouvindo o IR (B).
     set({ on: true, volumeDb: START_VOLUME_DB, muted: false, ab: 'B', error: null });
-    engine.setVolumeDb(START_VOLUME_DB);
-    engine.setAB('B');
-    engine.setLoudnessMatch(get().match);
+    e.setVolumeDb(START_VOLUME_DB);
+    e.setAB('B');
+    e.setLoudnessMatch(get().match);
     // O IR que toca é SEMPRE o último calculado (o mesmo da exportação).
     const apply = () => {
       const r = useIrStore.getState().result;
@@ -108,6 +165,13 @@ export const useAudioStore = create<AudioState>()((set, get) => ({
       if (s.result !== prev.result) apply();
     });
     void get().refreshDevices();
+    void probeOutputRate(get().sinkId || undefined).then((outputRate) => set({ outputRate }));
+    // Mede (com impulso, fora do tempo real) quanto o grafo atrasa o som.
+    const irLen = useIrStore.getState().result?.ir.length ?? 1024;
+    set({ graphDelay: null });
+    void measureGraphDelay(irLen)
+      .then((graphDelay) => set({ graphDelay }))
+      .catch((err) => console.warn('Medição do atraso do grafo falhou', err));
   },
 
   powerOff: async () => {
@@ -115,7 +179,14 @@ export const useAudioStore = create<AudioState>()((set, get) => ({
     unsubIr = null;
     const e = engine;
     engine = null;
-    set({ on: false, source: null, playing: null, placeholder: false, trackLatency: null });
+    set({
+      on: false,
+      source: null,
+      playing: null,
+      placeholder: false,
+      trackLatency: null,
+      trackSampleRate: null,
+    });
     await e?.close();
   },
 
@@ -153,7 +224,7 @@ export const useAudioStore = create<AudioState>()((set, get) => ({
       const outputs = all.filter((d) => d.kind === 'audiooutput');
       const cur = get().inputId;
       // Prefere o Nano se aparecer na lista.
-      const nano = inputs.find((d) => /nano|cortex|neural/i.test(d.label));
+      const nano = inputs.find((d) => isNanoLabel(d.label));
       const inputId = inputs.some((d) => d.deviceId === cur) ? cur : ((nano ?? inputs[0])?.deviceId ?? '');
       set({ inputs, outputs, inputId });
     } catch {
@@ -176,7 +247,7 @@ export const useAudioStore = create<AudioState>()((set, get) => ({
     try {
       const { inputId, inputs } = get();
       const label = inputs.find((d) => d.deviceId === inputId)?.label ?? '';
-      const nanoUsb = /nano|cortex|neural/i.test(label)
+      const nanoUsb = isNanoLabel(label)
         ? DEVICE_PRESETS.find((d) => d.id === 'nano-cortex')?.usb
         : undefined;
       // Abre o dispositivo, vê quantos canais chegaram e escolhe o padrão
@@ -192,6 +263,7 @@ export const useAudioStore = create<AudioState>()((set, get) => ({
         channelCount: info.channelCount,
         channelSel: sel,
         trackLatency: info.trackLatency,
+        trackSampleRate: info.trackSampleRate,
         muted: false,
         error: null,
       });
@@ -227,15 +299,32 @@ export const useAudioStore = create<AudioState>()((set, get) => ({
 
   stop: () => {
     engine?.stopSource();
-    set({ source: null, playing: null, trackLatency: null });
+    set({ source: null, playing: null, trackLatency: null, trackSampleRate: null });
   },
 
   setSink: async (id) => {
     try {
       await engine?.setSinkId(id);
       set({ sinkId: id });
+      void probeOutputRate(id || undefined).then((outputRate) => set({ outputRate }));
     } catch (err) {
       set({ error: errorOf(err, 'sink') });
     }
+  },
+
+  setLowLatency: async (on) => {
+    try {
+      localStorage.setItem(LOW_LATENCY_KEY, on ? '1' : '0');
+    } catch {
+      /* ignora */
+    }
+    set({ lowLatency: on });
+    if (!engine) return;
+    // latencyHint só vale na criação do AudioContext: desliga e liga de novo.
+    // (O volume volta a −12 dB, como em todo "ligar".)
+    const wasLive = get().source === 'live';
+    await get().powerOff();
+    await get().powerOn();
+    if (wasLive) await get().startLive();
   },
 }));

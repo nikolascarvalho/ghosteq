@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { channelOptions } from '../../audio/helpers';
+import { channelOptions, isNanoLabel } from '../../audio/helpers';
 import { readLevel } from '../../audio/liveInput';
 import { LOOP_STYLES } from '../../audio/placeholderLoops';
 import { useT, type MessageKey } from '../../i18n';
 import { getEngine, supportsSinkId, useAudioStore, type SourceKind } from '../../state/audioStore';
 import { LevelMeter } from '../common/LevelMeter';
 import { formatDb } from '../common/format';
+import { LatencyPanel } from './LatencyPanel';
 import { SpectrumCanvas } from './SpectrumCanvas';
 
 /** Re-renderiza a cada `ms` enquanto ativo (medidores, latência, limiter). */
@@ -17,8 +18,6 @@ function useTick(active: boolean, ms = 100) {
     return () => clearInterval(id);
   }, [active, ms]);
 }
-
-const msText = (s: number | null) => (s == null ? '?' : (s * 1000).toFixed(1));
 
 export function LivePanel() {
   const { t } = useT();
@@ -38,12 +37,7 @@ export function LivePanel() {
   }, [s.on]);
 
   const engine = getEngine();
-  const lat = engine?.latency();
-  const total =
-    lat && (lat.base != null || lat.output != null)
-      ? (lat.base ?? 0) + (lat.output ?? 0) + (s.source === 'live' ? (s.trackLatency ?? 0) : 0)
-      : null;
-  const reduction = engine?.limiterReductionDb ?? 0;
+  const reduction = engine?.limiterReductionDb ?? null;
 
   // Níveis por canal da entrada ao vivo.
   const levels: number[] = [];
@@ -52,7 +46,9 @@ export function LivePanel() {
     for (const a of engine.liveChannelAnalysers) levels.push(readLevel(a, buf).peakDb);
   }
   const selected = channelOptions(s.channelCount).find((o) => o.id === s.channelSel)?.channels ?? [];
-  const isNanoInput = /nano|cortex|neural/i.test(s.inputs.find((d) => d.deviceId === s.inputId)?.label ?? '');
+  const isNanoInput = isNanoLabel(s.inputs.find((d) => d.deviceId === s.inputId)?.label ?? '');
+  const sinkLabel = s.outputs.find((d) => d.deviceId === s.sinkId)?.label ?? '';
+  const sinkIsNano = !!s.sinkId && isNanoLabel(sinkLabel);
 
   return (
     <section className="card live">
@@ -216,8 +212,8 @@ export function LivePanel() {
             <span className="num-display">{formatDb(s.volumeDb)}</span>
             <span />
           </div>
-          <p className={`small ${reduction < -1 ? 'warn' : 'muted'}`}>
-            {t('live.limiter', { db: formatDb(reduction) })}
+          <p className={`small ${reduction != null && reduction < -1 ? 'warn' : 'muted'}`}>
+            {reduction != null ? t('live.limiter', { db: formatDb(reduction) }) : t('live.limiterFallback')}
             {s.muted && <strong className="error"> · {t('live.muted')}</strong>}
           </p>
 
@@ -230,26 +226,17 @@ export function LivePanel() {
                   .filter((d) => d.deviceId !== 'default')
                   .map((d) => (
                     <option key={d.deviceId} value={d.deviceId}>
-                      {d.label || d.deviceId.slice(0, 8)}
+                      {isNanoLabel(d.label)
+                        ? `🧪 ${d.label} (${t('live.outputNanoTag')})`
+                        : d.label || d.deviceId.slice(0, 8)}
                     </option>
                   ))}
               </select>
             </label>
           )}
+          {sinkIsNano && <p className="notice notice-warn small">{t('live.outputNanoNote')}</p>}
 
-          {lat && (
-            <p className="muted small">
-              {t('live.latency', {
-                ms: msText(total),
-                base: msText(lat.base),
-                out: msText(lat.output),
-                inp:
-                  s.source === 'live' && s.trackLatency != null
-                    ? t('live.latencyInput', { ms: msText(s.trackLatency) })
-                    : '',
-              })}
-            </p>
-          )}
+          <LatencyPanel />
 
           <p className="muted small">{t('live.spectrum')}</p>
           <SpectrumCanvas />

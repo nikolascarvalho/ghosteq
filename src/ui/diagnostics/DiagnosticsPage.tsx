@@ -9,7 +9,9 @@ import {
   type LiveInput,
 } from '../../audio/liveInput';
 import { DEVICE_PRESETS } from '../../config/devices';
+import { useAudioStore } from '../../state/audioStore';
 import { LevelMeter } from '../common/LevelMeter';
+import { MeasurementTable } from './MeasurementTable';
 
 interface Latencies {
   base: number | null;
@@ -93,7 +95,7 @@ export function DiagnosticsPage() {
     await close();
     maxPeaks.current = new Array(MAX_CHANNELS).fill(-Infinity);
     try {
-      const li = await openLiveInput(deviceId);
+      const li = await openLiveInput(deviceId, useAudioStore.getState().lowLatency);
       li.onProbe((r) => setProbeChannels(r.channels));
       setInput(li);
     } catch (err) {
@@ -173,6 +175,7 @@ export function DiagnosticsPage() {
       sourceNodeChannelCount: input.source.channelCount,
       measuredChannels: probeChannels,
       contextSampleRate: input.ctx.sampleRate,
+      lowLatency: useAudioStore.getState().lowLatency,
       latencyMs: {
         base: ms(latency.base),
         output: ms(latency.output),
@@ -329,6 +332,8 @@ export function DiagnosticsPage() {
           </div>
         </section>
       )}
+
+      <MeasurementTable />
     </main>
   );
 }
