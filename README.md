@@ -152,6 +152,61 @@ O navegador não usa ASIO, só o driver padrão do Windows (WASAPI), e muitas ve
 
 ---
 
+## Latência do modo ao vivo (Windows)
+
+O som que você ouve ao vivo faz este caminho, e cada trecho soma atraso:
+
+```
+guitarra → Nano (amp, caixa) → USB → driver do Windows → navegador (captura)
+        → GhostEQ (grafo) → navegador (buffer de saída) → driver do Windows → placa/fone
+```
+
+O painel **Ouvir** mostra o total em destaque e, em "ver detalhes", cada parcela. Quando o navegador não informa uma parcela, ela aparece como "não informado" e o total vira "parcial".
+
+| Parcela                                     | De onde vem                                                                                               | Quem controla                                                                                                            |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Entrada** (`track.getSettings().latency`) | Driver do Windows + buffer de captura do navegador. Só Chrome/Edge informam.                              | Windows/navegador. O app pede o mínimo (`latency: 0`) e desliga eco/ruído/ganho automático (que somariam processamento). |
+| **Buffer do AudioContext** (`baseLatency`)  | O bloco em que o navegador processa o áudio (no Windows, ~10 ms).                                         | O app, em parte: o modo **Baixa latência** pede o menor possível.                                                        |
+| **Saída** (`outputLatency`)                 | Do navegador até o som sair: mixer do Windows + driver + placa. Costuma ser a maior parcela (ex.: 40 ms). | Windows/driver. Ajuda: 48 kHz, sem "Aprimoramentos de áudio".                                                            |
+| **Grafo do GhostEQ**                        | Os nós do app (convolver, A/B, volume, limiter). Medido com impulso ao ligar.                             | O app. Hoje: **0 amostras**.                                                                                             |
+
+**O piso do navegador.** Uma DAW com ASIO fala direto com a placa, com buffers de 1–3 ms. O navegador **não usa ASIO**: ele passa pelo driver compartilhado do Windows (WASAPI compartilhado), em que todos os apps são misturados pelo mixer do sistema em blocos de ~10 ms, na entrada e na saída. Esse piso é do Windows + navegador; o GhostEQ não consegue ficar abaixo dele, só garantir que não soma nada por cima (por isso o limiter novo e o grafo medido em 0 amostras). Analogia: o app é um job rápido, mas a fila do cluster (o mixer do Windows) tem um tempo mínimo de agendamento.
+
+### O que o app faz para reduzir
+
+- **Limiter sem lookahead** (AudioWorklet): −10 ms em relação à versão anterior, mantendo o teto de −1 dBFS e o volume antes da proteção.
+- **Grafo enxuto**: só nós sem buffer no caminho do som; medidores em paralelo.
+- **Baixa latência** (checkbox no painel; padrão **ligado no Windows**): cria o `AudioContext` com `latencyHint: 0` (o menor buffer que o navegador aceitar) em vez de `"interactive"`. A escolha fica salva no navegador (`localStorage`). Trocar reinicia o áudio (o volume volta a −12 dB, como em todo "ligar"). Se o navegador informar falhas de áudio (estalos/underruns, via `AudioContext.playbackStats`), o painel avisa e oferece desligar. Os 2 primeiros segundos são ignorados (abrir o dispositivo costuma dar 1 falha).
+- **Aviso de 48 kHz**: o app compara a taxa do contexto, a da entrada (`track.getSettings().sampleRate`) e a nativa da saída (um `AudioContext` de teste sem taxa fixa usa a do hardware). Se alguma não for 48 kHz, o navegador está convertendo a taxa no meio do caminho, o que soma atraso e pode estalar. Passo a passo: **Configurações → Sistema → Som → clique no dispositivo → Propriedades → Formato "24 bits, 48000 Hz"**, para o Nano (em Entrada) **e** para a saída.
+- **Dicas para Windows** (checklist no painel, só aparece no Windows): Nano e saída em 48 kHz; desativar "Aprimoramentos de áudio" na saída; fechar DAW, Cortex Control e outros apps usando o Nano; porta USB da placa-mãe (traseira), sem hub; fone na saída do PC/placa de som; plano de energia "Alto desempenho" se houver estalos.
+- **Saída pelo próprio Nano (experimental)**: no seletor de Saída, o Nano aparece marcado com 🧪. Ele também toca o próprio som (monitoramento direto), então você ouviria os dois. Teste: silencie o monitoramento direto (ex.: abra o tuner) e veja se o som do app continua. Nunca é o padrão.
+- **Copiar diagnóstico**: copia navegador e versão, dispositivos, taxas, modo de latência, cada parcela, atraso do grafo e estalos, para colar na conversa e comparar configurações.
+
+### Roteiro de medição
+
+Na tela **/diagnostico** há a mesma tabela, editável e salva no navegador; o botão **"Anotar no roteiro"** do painel Ouvir preenche a linha certa sozinho (navegador, modo e saída atuais), e "Copiar tabela" gera o Markdown.
+
+1. No Chrome: ligue o áudio no editor e inicie a entrada ao vivo com o Nano (canais 3+4).
+2. Com **Baixa latência** ligado, toque ~1 minuto. Anote o total e se houve estalo.
+3. Desligue **Baixa latência** e repita.
+4. Troque a **Saída** para o Nano (experimental) e repita os dois modos.
+5. Repita tudo no Edge.
+
+| Navegador | Baixa latência | Saída       | Total (ms) | Estalo? | Notas |
+| --------- | -------------- | ----------- | ---------- | ------- | ----- |
+| Chrome    | ligado         | placa do PC |            |         |       |
+| Chrome    | ligado         | Nano        |            |         |       |
+| Chrome    | desligado      | placa do PC |            |         |       |
+| Chrome    | desligado      | Nano        |            |         |       |
+| Edge      | ligado         | placa do PC |            |         |       |
+| Edge      | ligado         | Nano        |            |         |       |
+| Edge      | desligado      | placa do PC |            |         |       |
+| Edge      | desligado      | Nano        |            |         |       |
+
+Referência (Focusrite Scarlett 2i2 1ª geração, Chrome, Windows, antes deste lote): ~78 ms. Desse total, 10 ms eram o limiter antigo.
+
+---
+
 ## Arquitetura (uma camada por vez)
 
 O app é 100% client-side: é um site estático, sem servidor. As camadas dependem só "de cima para baixo" (`ui → state → workers/audio → dsp/io/config`), como num pipeline em que a camada de apresentação nunca é importada pela camada de transformação.
@@ -159,12 +214,15 @@ O app é 100% client-side: é um site estático, sem servidor. As camadas depend
 - **`src/config/`** — Dados de configuração, sem lógica. `devices.ts` lista os aparelhos (sample rate, tamanho do IR, mapeamento USB). É a "tabela de dimensão" dos aparelhos.
 - **`src/i18n/`** — Textos em PT-BR e EN. `pt-BR.ts` define as chaves (o "schema"); `en.ts` é obrigado pelo TypeScript a ter as mesmas chaves, então nunca falta tradução sem o build avisar. O hook `useT()` devolve a função `t('chave')`.
 - **`src/audio/`** — Tudo que fala com a Web Audio API (o "motor de áudio" do navegador). O áudio é montado como um **grafo**: uma rede de nós ligados entre si, como um DAG de transformações num pipeline.
-  - `engine.ts`: o motor do modo "Ouvir". Caminho: fonte → entrada mono → **A** (original) ou **B** (ConvolverNode com o IR, `normalize = false`) → crossfade A/B de 20 ms → volume → limiter (compressor rápido) → **hard clip em −1 dBFS** → mudo → saída.
+  - `graph.ts`: o **caminho do som** do modo "Ouvir": entrada mono → **A** (original) ou **B** (ConvolverNode com o IR, `normalize = false`) → crossfade A/B de 20 ms → volume → **limiter sem lookahead + hard clip em −1 dBFS** → mudo → saída. Só ficam em série nós que não guardam buffer (ganhos, convolver, worklet); analisadores e medidores de RMS ficam em **ramificações paralelas**, como um `tee` num pipeline: leem o sinal, mas o som não passa por eles. O mesmo grafo pode ser montado num `OfflineAudioContext` (renderiza mais rápido que o tempo real, sem placa de som): `measureGraphDelay()` manda um impulso e mede onde ele sai, ao ligar o áudio. Resultado atual: **0 amostras** nos caminhos A e B.
+  - `worklets/safety-limiter.worklet.js`: o limiter de segurança, rodando na thread de áudio (AudioWorklet). Detector de pico **por amostra**, redução de ganho **instantânea** (attack 0), release de ~50 ms e hard clip em −1 dBFS no fim. Abaixo do limiar o ganho é exatamente 1 (o sinal passa igual, bit a bit). Substituiu o `DynamicsCompressorNode` + `WaveShaper` 4x, que juntos atrasavam o som em **480 amostras (10 ms)** (medido com impulso: 288 do compressor, que "olha à frente", e 192 do oversampling). O mesmo arquivo exporta a classe pura `PeakLimiterCore`, testada no Vitest (atraso 0, teto com +29 dBFS na entrada, release). Se o navegador não tiver AudioWorklet, cai para um hard clip simples (também sem atraso).
+  - `engine.ts`: o motor em tempo real em volta do grafo: cria o `AudioContext` (normal ou **baixa latência**), as fontes, a saída (`setSinkId`), lê latências e estalos (`playbackStats`).
     - O IR tocado é **o mesmo array** que vai para o WAV exportado. Trocar o IR usa dois convolvers alternados com crossfade, então não estala enquanto você arrasta uma banda.
     - "Compensar volume no A/B" mede o RMS dos dois caminhos e iguala o B ao A (±18 dB), para julgar só o timbre; não altera o arquivo.
     - Toda vez que o áudio liga, o volume volta a **−12 dB**. O botão de pânico (sempre visível, ou Esc) zera a saída na hora.
     - Fontes: entrada ao vivo (as mesmas configurações cruas do diagnóstico; escolhe canal ou par, e no Nano o padrão é **3+4**), gravação do usuário (WAV/MP3… em loop) ou loops de exemplo. A saída pode ir para outro dispositivo (`setSinkId`, Chrome/Edge).
   - `helpers.ts`: partes puras e testadas: curva do hard clip, compensação de volume, opções e padrão de canais.
+  - `latency.ts`: funções puras de latência: detecção de navegador/SO, soma das parcelas, taxas fora de 48 kHz e o texto do "Copiar diagnóstico".
   - `exampleLoops.ts` / `placeholderLoops.ts`: os loops reais vêm de `public/samples/<estilo>.wav`. Se não existirem e o app estiver em **desenvolvimento**, um placeholder sintético é gerado na hora (cordas Karplus-Strong + saturação + "caixa"). Em produção, sem os arquivos reais, a opção avisa que falta o loop.
   - `liveInput.ts`: abre a entrada com as configurações cruas (sem cancelamento de eco, supressão de ruído ou ganho automático, que destruiriam o timbre) e monta o grafo de medição do `/diagnostico`. `worklets/channel-probe.worklet.js` roda dentro da thread de áudio e conta os canais reais.
 - **`src/dsp/`** — O "motor matemático". Só funções puras (entrada → saída, sem estado global, sem tela, sem áudio do navegador), como uma biblioteca Python de transformação que se testa com pytest sem subir nada. O lint proíbe esta pasta de importar React ou usar `window`/`document`. Conteúdo:
