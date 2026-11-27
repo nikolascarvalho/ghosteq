@@ -1,4 +1,4 @@
-# Cabeçalhos HTTP aplicados pelo Cloudflare Pages (este arquivo vai para dist/).
+# Cabeçalhos HTTP aplicados pelo Cloudflare (static assets do Worker). Este arquivo vai para dist/.
 
 # Arquivos que mudam a cada deploy: o navegador sempre revalida, senão a PWA
 # poderia ficar presa numa versão velha.
