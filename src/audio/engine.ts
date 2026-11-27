@@ -1,113 +1,111 @@
-// Motor de áudio (Web Audio API). Monta o "grafo" — uma rede de nós de áudio,
-// como um DAG de transformações num pipeline de dados:
+// Motor de áudio em tempo real (Web Audio API). O caminho do som em si
+// (A/B, convolver, volume, limiter) mora em graph.ts; aqui ficam as partes que
+// só existem "ao vivo": o AudioContext, as fontes (entrada, arquivo, loop), a
+// saída (setSinkId), latências e estalos.
 //
-//   fonte → entrada (mono) ─┬─ A: original ──────────────────────────┐
-//                           └─ B: convolver A/B (IR) → compensação ──┤
-//                                                                    ↓
-//                     mix → volume → limiter → hard clip (−1 dBFS) → mudo → saída
+//   fonte → [splitter → canais escolhidos] → MonitorGraph → saída
 //
-// - O IR usado é EXATAMENTE o exportado (mesmo array). Trocar de IR usa dois
-//   convolvers alternados com crossfade, para não estalar.
+// - O IR usado é EXATAMENTE o exportado (mesmo array).
 // - Nenhuma lógica de estado/tela aqui: a camada state/ chama estes métodos.
 import { resampleIr } from '../dsp';
+import { MonitorGraph, loadLimiter, type AB } from './graph';
+import { ENGINE_SAMPLE_RATE, loudnessCompensation, rms } from './helpers';
 import { rawAudioConstraints } from './liveInput';
-import { CROSSFADE_S, START_VOLUME_DB, dbToLin, hardClipCurve, loudnessCompensation, rms } from './helpers';
 
-export const ENGINE_SAMPLE_RATE = 48000;
-export type AB = 'A' | 'B';
+export { ENGINE_SAMPLE_RATE };
+export type { AB };
 
 export interface LiveSourceInfo {
   channelCount: number;
   trackLatency: number | null;
+  trackSampleRate: number | null;
   label: string;
 }
 
+export interface EngineOptions {
+  /** true = latencyHint 0 (o menor buffer que o navegador aceitar). */
+  lowLatency: boolean;
+}
+
+export interface GlitchStats {
+  events: number;
+  durationMs: number;
+}
+
+/**
+ * Estatísticas de "underrun" (o navegador não conseguiu entregar o áudio a
+ * tempo = estalo), quando o navegador informa. Duas versões da mesma API:
+ * `playbackStats` (atual, duração em s) e `playoutStats` (antiga, em ms).
+ */
+function readUnderruns(ctx: AudioContext): { events: number; durationS: number } | null {
+  const c = ctx as unknown as {
+    playbackStats?: { underrunEvents?: number; underrunDuration?: number };
+    playoutStats?: { fallbackFramesEvents?: number; fallbackFramesDuration?: number };
+  };
+  try {
+    const p = c.playbackStats;
+    if (p && typeof p.underrunEvents === 'number')
+      return { events: p.underrunEvents, durationS: p.underrunDuration ?? 0 };
+    const o = c.playoutStats;
+    if (o && typeof o.fallbackFramesEvents === 'number')
+      return { events: o.fallbackFramesEvents, durationS: (o.fallbackFramesDuration ?? 0) / 1000 };
+  } catch {
+    /* API presente mas indisponível neste contexto */
+  }
+  return null;
+}
+
+/** Taxa "nativa" do dispositivo de saída: um AudioContext sem sampleRate usa a do hardware. */
+export async function probeOutputRate(sinkId?: string): Promise<number | null> {
+  try {
+    const opts = sinkId ? ({ sinkId } as AudioContextOptions) : undefined;
+    const c = new AudioContext(opts);
+    const sr = c.sampleRate;
+    await c.close();
+    return sr;
+  } catch {
+    return null;
+  }
+}
+
+/** Segundos de aquecimento ignorados na contagem de estalos (abrir o dispositivo costuma falhar 1×). */
+const GLITCH_WARMUP_S = 2;
+
 export class AudioEngine {
   readonly ctx: AudioContext;
-  /** Analisadores para o espectro: antes (original) e depois (com IR). */
-  readonly analyserBefore: AnalyserNode;
-  readonly analyserAfter: AnalyserNode;
+  readonly graph: MonitorGraph;
+  readonly latencyHint: AudioContextLatencyCategory | number;
   /** Analisadores por canal da entrada ao vivo (para os medidores). */
   liveChannelAnalysers: AnalyserNode[] = [];
 
-  private input: GainNode;
-  private dryAB: GainNode;
-  private wetAB: GainNode;
-  private wetComp: GainNode;
-  private convs: [ConvolverNode, ConvolverNode];
-  private convGains: [GainNode, GainNode];
-  private active = 0;
-  private hasIr = false;
-  private swapping = false;
-  private pendingIr: AudioBuffer | null = null;
-  private volume: GainNode;
-  private limiter: DynamicsCompressorNode;
-  private muteGain: GainNode;
-  private rmsIn: AnalyserNode;
-  private rmsWet: AnalyserNode;
   private matchTimer: ReturnType<typeof setInterval> | null = null;
   private stopCurrent: (() => void) | null = null;
   private live: { splitter: ChannelSplitterNode; picked: GainNode; outputs: number } | null = null;
+  private glitchBase: { events: number; durationS: number } | null = null;
 
-  constructor(ctx?: AudioContext) {
-    this.ctx = ctx ?? new AudioContext({ sampleRate: ENGINE_SAMPLE_RATE, latencyHint: 'interactive' });
-    const c = this.ctx;
+  /** Cria o contexto, carrega o worklet do limiter e monta o grafo. */
+  static async create(opts: EngineOptions): Promise<AudioEngine> {
+    const latencyHint: AudioContextLatencyCategory | number = opts.lowLatency ? 0 : 'interactive';
+    const ctx = new AudioContext({ sampleRate: ENGINE_SAMPLE_RATE, latencyHint });
+    const worklet = await loadLimiter(ctx);
+    return new AudioEngine(ctx, worklet, latencyHint);
+  }
 
-    // Entrada forçada a mono: qualquer fonte estéreo é somada aqui.
-    this.input = new GainNode(c, {
-      channelCount: 1,
-      channelCountMode: 'explicit',
-      channelInterpretation: 'speakers',
-    });
+  private constructor(
+    ctx: AudioContext,
+    worklet: boolean,
+    latencyHint: AudioContextLatencyCategory | number,
+  ) {
+    this.ctx = ctx;
+    this.latencyHint = latencyHint;
+    this.graph = new MonitorGraph(ctx, { worklet });
+  }
 
-    this.dryAB = new GainNode(c, { gain: 0 });
-    this.wetAB = new GainNode(c, { gain: 1 });
-    this.wetComp = new GainNode(c, { gain: 1 });
-    // normalize = false ANTES de receber o buffer: o IR toca com o ganho real (ex.: +9 dB).
-    this.convs = [
-      new ConvolverNode(c, { disableNormalization: true }),
-      new ConvolverNode(c, { disableNormalization: true }),
-    ];
-    this.convGains = [new GainNode(c, { gain: 1 }), new GainNode(c, { gain: 0 })];
-    const wetSum = new GainNode(c);
-
-    this.analyserBefore = new AnalyserNode(c, { fftSize: 8192, smoothingTimeConstant: 0.8 });
-    this.analyserAfter = new AnalyserNode(c, { fftSize: 8192, smoothingTimeConstant: 0.8 });
-    this.rmsIn = new AnalyserNode(c, { fftSize: 4096 });
-    this.rmsWet = new AnalyserNode(c, { fftSize: 4096 });
-
-    const mix = new GainNode(c);
-    this.volume = new GainNode(c, { gain: dbToLin(START_VOLUME_DB) });
-    // Limiter: compressor rápido e de razão alta…
-    this.limiter = new DynamicsCompressorNode(c, {
-      threshold: -3,
-      knee: 0,
-      ratio: 20,
-      attack: 0.001,
-      release: 0.1,
-    });
-    // …e, depois dele, um hard clip que garante o teto de −1 dBFS.
-    const clipper = new WaveShaperNode(c, { curve: hardClipCurve(), oversample: '4x' });
-    this.muteGain = new GainNode(c, { gain: 1 });
-
-    // Caminho A (original)
-    this.input.connect(this.dryAB).connect(mix);
-    // Caminho B (com IR)
-    for (let i = 0; i < 2; i++)
-      this.input.connect(this.convs[i]!).connect(this.convGains[i]!).connect(wetSum);
-    wetSum.connect(this.wetComp).connect(this.wetAB).connect(mix);
-    // Medições
-    this.input.connect(this.analyserBefore);
-    this.input.connect(this.rmsIn);
-    wetSum.connect(this.rmsWet);
-    this.wetComp.connect(this.analyserAfter);
-    // Saída protegida
-    mix
-      .connect(this.volume)
-      .connect(this.limiter)
-      .connect(clipper)
-      .connect(this.muteGain)
-      .connect(c.destination);
+  get analyserBefore(): AnalyserNode {
+    return this.graph.analyserBefore;
+  }
+  get analyserAfter(): AnalyserNode {
+    return this.graph.analyserAfter;
   }
 
   async resume(): Promise<void> {
@@ -126,72 +124,30 @@ export class AudioEngine {
       sampleRate: this.ctx.sampleRate,
     });
     buf.copyToChannel(Float32Array.from(data), 0);
-    this.swapIr(buf);
-  }
-
-  private swapIr(buf: AudioBuffer): void {
-    if (!this.hasIr) {
-      this.convs[0].buffer = buf;
-      this.hasIr = true;
-      return;
-    }
-    if (this.swapping) {
-      this.pendingIr = buf; // aplica o mais recente quando a troca atual terminar
-      return;
-    }
-    const t = this.ctx.currentTime;
-    const next = this.active === 0 ? 1 : 0;
-    this.convs[next]!.buffer = buf;
-    const gIn = this.convGains[next]!.gain;
-    const gOut = this.convGains[this.active]!.gain;
-    gIn.cancelScheduledValues(t);
-    gOut.cancelScheduledValues(t);
-    gIn.setValueAtTime(0, t);
-    gIn.linearRampToValueAtTime(1, t + CROSSFADE_S);
-    gOut.setValueAtTime(gOut.value, t);
-    gOut.linearRampToValueAtTime(0, t + CROSSFADE_S);
-    this.active = next;
-    this.swapping = true;
-    setTimeout(
-      () => {
-        this.swapping = false;
-        const p = this.pendingIr;
-        this.pendingIr = null;
-        if (p) this.swapIr(p);
-      },
-      CROSSFADE_S * 1000 + 15,
-    );
+    this.graph.setIrBuffer(buf);
   }
 
   // ---------- Controles ----------
 
-  /** A = original, B = com IR (crossfade de ~20 ms). */
   setAB(ab: AB): void {
-    const t = this.ctx.currentTime;
-    for (const [g, on] of [
-      [this.dryAB.gain, ab === 'A'],
-      [this.wetAB.gain, ab === 'B'],
-    ] as const) {
-      g.cancelScheduledValues(t);
-      g.setValueAtTime(g.value, t);
-      g.linearRampToValueAtTime(on ? 1 : 0, t + CROSSFADE_S);
-    }
+    this.graph.setAB(ab);
   }
 
   /** Liga a compensação de volume: o caminho B é ajustado para ter o mesmo RMS do A. */
   setLoudnessMatch(on: boolean): void {
     if (this.matchTimer) clearInterval(this.matchTimer);
     this.matchTimer = null;
-    const g = this.wetComp.gain;
+    const g = this.graph.wetComp.gain;
     if (!on) {
       g.setTargetAtTime(1, this.ctx.currentTime, 0.05);
       return;
     }
-    const a = new Float32Array(this.rmsIn.fftSize);
-    const b = new Float32Array(this.rmsWet.fftSize);
+    const { rmsIn, rmsWet } = this.graph;
+    const a = new Float32Array(rmsIn.fftSize);
+    const b = new Float32Array(rmsWet.fftSize);
     this.matchTimer = setInterval(() => {
-      this.rmsIn.getFloatTimeDomainData(a);
-      this.rmsWet.getFloatTimeDomainData(b);
+      rmsIn.getFloatTimeDomainData(a);
+      rmsWet.getFloatTimeDomainData(b);
       const comp = loudnessCompensation(rms(a), rms(b));
       // constante de tempo de 0,3 s: acompanha a música sem "bombear"
       if (comp !== null) g.setTargetAtTime(comp, this.ctx.currentTime, 0.3);
@@ -199,25 +155,38 @@ export class AudioEngine {
   }
 
   setVolumeDb(db: number): void {
-    this.volume.gain.setTargetAtTime(dbToLin(db), this.ctx.currentTime, 0.01);
+    this.graph.setVolumeDb(db);
   }
 
-  /** Mudo instantâneo (sem rampa): usado pelo botão de pânico. */
   setMuted(muted: boolean): void {
-    const g = this.muteGain.gain;
-    g.cancelScheduledValues(this.ctx.currentTime);
-    g.setValueAtTime(muted ? 0 : 1, this.ctx.currentTime);
+    this.graph.setMuted(muted);
   }
 
-  /** Quanto o limiter está reduzindo agora (dB, ≤ 0). */
-  get limiterReductionDb(): number {
-    return this.limiter.reduction;
+  /** Quanto o limiter está reduzindo agora (dB, ≤ 0); null no fallback sem worklet. */
+  get limiterReductionDb(): number | null {
+    return this.graph.reductionDb;
   }
 
   latency(): { base: number | null; output: number | null } {
+    const out = this.ctx.outputLatency;
     return {
-      base: this.ctx.baseLatency ?? null,
-      output: typeof this.ctx.outputLatency === 'number' ? this.ctx.outputLatency : null,
+      base: typeof this.ctx.baseLatency === 'number' ? this.ctx.baseLatency : null,
+      // Alguns navegadores devolvem 0 até o áudio começar a sair: 0 = "ainda não sei".
+      output: typeof out === 'number' && out > 0 ? out : null,
+    };
+  }
+
+  /** Estalos desde o aquecimento; null se o navegador não informa. */
+  glitchStats(): GlitchStats | null {
+    const raw = readUnderruns(this.ctx);
+    if (!raw) return null;
+    if (!this.glitchBase) {
+      if (this.ctx.currentTime < GLITCH_WARMUP_S) return { events: 0, durationMs: 0 };
+      this.glitchBase = raw;
+    }
+    return {
+      events: Math.max(0, raw.events - this.glitchBase.events),
+      durationMs: Math.max(0, (raw.durationS - this.glitchBase.durationS) * 1000),
     };
   }
 
@@ -239,7 +208,7 @@ export class AudioEngine {
   playBuffer(buffer: AudioBuffer): void {
     this.stopSource();
     const src = new AudioBufferSourceNode(this.ctx, { buffer, loop: true });
-    src.connect(this.input);
+    src.connect(this.graph.input);
     src.start();
     this.stopCurrent = () => {
       try {
@@ -264,6 +233,7 @@ export class AudioEngine {
   /**
    * Entrada ao vivo: abre o dispositivo com as mesmas configurações "cruas" do
    * diagnóstico e soma (média) só os canais escolhidos (ex.: 3+4 do Nano).
+   * Os medidores por canal ficam em ramificação paralela, fora do caminho do som.
    */
   async startLive(deviceId: string, channels: number[]): Promise<LiveSourceInfo> {
     this.stopSource();
@@ -274,7 +244,7 @@ export class AudioEngine {
     const splitter = this.ctx.createChannelSplitter(Math.max(n, ...channels.map((c) => c + 1)));
     src.connect(splitter);
     const picked = new GainNode(this.ctx, { gain: 1 });
-    picked.connect(this.input);
+    picked.connect(this.graph.input);
     this.live = { splitter, picked, outputs: splitter.numberOfOutputs };
     this.setLiveChannels(channels);
     this.liveChannelAnalysers = Array.from({ length: n }, (_, i) => {
@@ -293,6 +263,7 @@ export class AudioEngine {
     return {
       channelCount: n,
       trackLatency: typeof s.latency === 'number' ? s.latency : null,
+      trackSampleRate: typeof s.sampleRate === 'number' ? s.sampleRate : null,
       label: track.label,
     };
   }

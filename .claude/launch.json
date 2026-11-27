@@ -7,6 +7,20 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
       "url": "https://localhost:5173"
+    },
+    {
+      "name": "ghosteq-dev-http",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:http"],
+      "port": 5174,
+      "url": "http://localhost:5174"
+    },
+    {
+      "name": "ghosteq-preview-http",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview:http"],
+      "port": 4174,
+      "url": "http://localhost:4174"
     }
   ]
 }

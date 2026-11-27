@@ -864,3 +864,108 @@ fieldset.format legend {
   box-shadow: 0 8px 24px #0009;
   z-index: 40;
 }
+
+/* ---------- Latência (modo ao vivo) ---------- */
+.latency-panel {
+  margin: 10px 0;
+}
+.latency-panel .notice ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.latency-panel .notice p {
+  margin: 6px 0 0;
+}
+.latency-panel .notice button {
+  margin-top: 8px;
+}
+.latency-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+.latency-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.latency-total strong {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.latency-box details {
+  margin: 6px 0;
+}
+.latency-box summary,
+.tips summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 32px;
+  display: list-item;
+}
+.latency-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0;
+}
+.latency-table th,
+.latency-table td {
+  text-align: left;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.latency-table th {
+  font-weight: normal;
+  padding-right: 12px;
+}
+.latency-table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.checklist {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+.checklist .check {
+  min-height: 36px;
+  align-items: flex-start;
+}
+.checklist .check input {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* ---------- Roteiro de medição (/diagnostico) ---------- */
+.measure-scroll {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.measure-table {
+  border-collapse: collapse;
+  min-width: 560px;
+  width: 100%;
+}
+.measure-table th,
+.measure-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.measure-table input[type='text'] {
+  width: 100%;
+  min-width: 60px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+}
+.measure-table input.num {
+  max-width: 90px;
+}

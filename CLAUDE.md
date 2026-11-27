@@ -177,7 +177,7 @@ O usuário testa no Chrome e no Edge (Windows) com o Nano Cortex e reporta. Se s
 1. Loops de exemplo: placeholders sintéticos só para desenvolvimento. O usuário vai gravar 3 loops reais (clean/crunch/high gain) pelo USB 3/4 do Nano com IR flat; `public/samples/README.md` explica o formato (WAV 48 kHz, mono ou estéreo, 10–20 s, normalizado a -1 dBFS).
 2. Frequências do Graphic-9 do Nano: NÃO pesquisar na web — perguntar ao usuário na etapa 5.
 3. Dev server em HTTPS (`@vitejs/plugin-basic-ssl`) com `--host`, para testar no celular pela rede local. Documentado no README.
-4. Modo ao vivo: volume de saída começa em -12 dB toda vez que o modo é ligado; teto de saída -1 dBFS (WaveShaper hard clip depois do compressor).
+4. Modo ao vivo: volume de saída começa em -12 dB toda vez que o modo é ligado; teto de saída -1 dBFS. Desde o Lote 9 a proteção é um AudioWorklet próprio sem lookahead (pico por amostra, attack 0, release ~50 ms, hard clip em -1 dBFS; 0 amostras de atraso), no lugar de DynamicsCompressor + WaveShaper 4x (que somavam 10 ms).
 5. README do /diagnostico (Windows): Nano ativo como dispositivo de gravação em Som do Windows; fechar DAW/apps que usem o Nano em modo exclusivo; desmarcar "Permitir que aplicativos assumam controle exclusivo" se houver conflito.
 6. Cab merge vem antes do motor de áudio/ao vivo.
 7. Repositório privado, sem arquivo de licença por enquanto.
@@ -189,3 +189,4 @@ O usuário testa no Chrome e no Edge (Windows) com o Nano Cortex e reporta. Se s
 13. Modos não paramétricos guardam os controles em `modeState` e `bands` é sempre a lista compilada. O nome do WAV nesses modos usa os valores dos controles (ex.: `GEQ9_65+8_1k-6_...`), não as bandas internas.
 14. PWA com `registerType: 'prompt'` (o app nunca recarrega sozinho; aviso "Nova versão → Atualizar"). Loops `/samples/*.wav` em cache só quando tocados (runtime CacheFirst), fora do precache. Service worker desligado no dev.
 15. Deploy: o projeto no Cloudflare é um **Worker só com static assets** (Workers Builds), não Pages. `wrangler.jsonc` versionado: `assets.directory = ./dist`, `not_found_handling = single-page-application`, `previews: {}` (exigido pelo `npx wrangler preview` das branches). Produção: <https://ghosteq.nhc-1997.workers.dev>.
+16. Lote 9 (latência ao vivo, foco Windows/Chrome/Edge): modo "Baixa latência" (`latencyHint: 0`) é padrão ligado no Windows e fica salvo no `localStorage`; estalos vêm de `AudioContext.playbackStats` quando existir. Saída pelo Nano é só experimental, nunca padrão. Não haverá app nativo: tudo continua no PWA.
