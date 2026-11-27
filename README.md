@@ -4,7 +4,7 @@ _The EQ that takes no slot._
 
 GhostEQ gera arquivos WAV de **impulse response (IR)** que contêm uma curva de EQ. Você carrega esse WAV no bloco de IR do seu modeler (Nano Cortex, Quad Cortex, Helix…) e ganha um EQ sem gastar um slot de efeito. Tudo roda no seu navegador: nenhum áudio sai do seu computador.
 
-> **Status:** MVP completo (etapas 0–9): editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt, caixa + EQ, exportação do WAV, escuta A/B ao vivo, app instalável e offline, deploy no Cloudflare Pages.
+> **Status:** MVP completo (etapas 0–9): editor paramétrico, gráfico 9 (Nano)/10/31, tone stack, tilt, caixa + EQ, exportação do WAV, escuta A/B ao vivo, app instalável e offline, deploy no Cloudflare (Workers com arquivos estáticos).
 
 ---
 
@@ -51,9 +51,19 @@ Na primeira vez o navegador vai mostrar **"Sua conexão não é particular"**. �
 
 ---
 
-## Deploy (GitHub + Cloudflare Pages)
+## Deploy (GitHub + Cloudflare Workers)
 
-O GhostEQ é um **site estático**: o build (`npm run build`) gera a pasta `dist/` com HTML, JS e ícones, e qualquer hospedagem de arquivos serve. Não há servidor nem banco. Usamos o **Cloudflare Pages** (grátis, HTTPS automático, banda ilimitada) ligado ao GitHub. Funciona como um pipeline de CI/CD: cada `git push` dispara um build na nuvem e publica.
+O GhostEQ é um **site estático**: o build (`npm run build`) gera a pasta `dist/` com HTML, JS e ícones, e qualquer hospedagem de arquivos serve. Não há servidor nem banco. Usamos o **Cloudflare Workers com arquivos estáticos** (grátis, HTTPS automático) ligado ao GitHub pelo **Workers Builds**. Funciona como um pipeline de CI/CD: cada `git push` dispara um build na nuvem e publica.
+
+Por que Worker e não Cloudflare Pages: o projeto foi criado no painel como Worker, e hoje é o caminho que o próprio Cloudflare recomenda para sites novos. Para um site estático o resultado é o mesmo (arquivos de `dist/` servidos pela rede do Cloudflare). O Worker aqui **não tem código nosso**, só serve arquivos.
+
+O arquivo **`wrangler.jsonc`** (na raiz) é a "config do job" do deploy, como um YAML de pipeline:
+
+- `assets.directory: "./dist"`: a pasta que vai ao ar.
+- `not_found_handling: "single-page-application"`: qualquer caminho que não é um arquivo (ex.: `/diagnostico`) recebe o `index.html`, e o app decide a tela.
+- `previews: {}`: obrigatório para o deploy de branches (`npx wrangler preview`). Vazio = a preview usa as mesmas configurações da produção.
+
+Sem esse arquivo, o deploy da `main` até funcionava (o `wrangler deploy` improvisava uma config na hora), mas o das outras branches falhava com "missing a `previews` block".
 
 ### 1. Repositório no GitHub (uma vez)
 
@@ -68,23 +78,25 @@ O GhostEQ é um **site estático**: o build (`npm run build`) gera a pasta `dist
    Na primeira vez o Windows abre o navegador para você entrar no GitHub (Git Credential Manager).
 3. Na aba **Actions** do repositório roda o **CI** (lint → formatação → typecheck → testes → build). O esperado é um ✓ verde em ~1–2 min.
 
-### 2. Cloudflare Pages (uma vez)
+### 2. Cloudflare Workers (uma vez — já feito)
 
-1. Em <https://dash.cloudflare.com> (conta grátis): **Workers & Pages → Create → Pages → Connect to Git** (os nomes dos menus podem variar um pouco).
+1. Em <https://dash.cloudflare.com> (conta grátis): **Workers & Pages → Create → Workers → Import a repository** (conectar ao GitHub; os nomes dos menus podem variar um pouco).
 2. Autorize o app do Cloudflare no GitHub **dando acesso ao repositório `ghosteq`** (por ser privado, precisa marcar explicitamente).
-3. Configuração do build:
+3. Configuração do build (em **ghosteq → Settings → Builds**, que tem duas abas):
 
-   | Campo                  | Valor              |
-   | ---------------------- | ------------------ |
-   | Production branch      | `main`             |
-   | Framework preset       | `None` (ou `Vite`) |
-   | Build command          | `npm run build`    |
-   | Build output directory | `dist`             |
-   | Root directory         | _(vazio)_          |
+   | Aba           | Campo                       | Valor                  |
+   | ------------- | --------------------------- | ---------------------- |
+   | Production    | Production branch           | `main`                 |
+   | Production    | Build command               | `npm run build`        |
+   | Production    | Deploy command              | `npx wrangler deploy`  |
+   | Previews Base | Builds for Preview branches | ligado                 |
+   | Previews Base | Build command               | `npm run build`        |
+   | Previews Base | Preview command             | `npx wrangler preview` |
+   | as duas       | Root directory              | `/`                    |
 
-   A versão do Node (22) vem do arquivo `.node-version`.
+   A versão do Node (22) vem do arquivo `.node-version`. A pasta de saída (`dist`) não é configurada no painel: vem do `wrangler.jsonc`.
 
-4. **Save and Deploy.** Em ~1–2 min o app está em `https://ghosteq.pages.dev` (ou um nome parecido, se esse já existir).
+4. **Deploy.** Em ~2 min o app está em <https://ghosteq.nhc-1997.workers.dev>.
 
 ### 3. Dia a dia
 
@@ -96,9 +108,11 @@ O GhostEQ é um **site estático**: o build (`npm run build`) gera a pasta `dist
   ```powershell
   git push -u origin teste-novo-modo
   ```
-  O endereço aparece no painel do Cloudflare (algo como `https://teste-novo-modo.ghosteq.pages.dev`).
-- `public/_headers` controla o cache: `index.html`, `sw.js` e o manifest sempre são revalidados, e os arquivos com hash no nome ficam em cache por 1 ano. Também restringe o microfone ao próprio site.
-- Rotas como `/diagnostico` funcionam porque, sem um `404.html`, o Cloudflare Pages entrega o `index.html` para qualquer caminho (modo SPA).
+  O build da branch roda `npx wrangler preview` e publica um endereço próprio (PREVIEW_URL_FORMAT). No pull request, o check **Workers Builds: ghosteq** fica verde e o link **Details** leva ao build no painel, com o endereço da preview.
+- Endereços de preview são **públicos** (qualquer um com o link abre). Como o app não guarda dados de ninguém no servidor, tudo bem; se um dia precisar fechar, o Cloudflare Access resolve.
+- `public/_headers` controla o cache: `index.html`, `sw.js` e o manifest sempre são revalidados, e os arquivos com hash no nome ficam em cache por 1 ano. Também restringe o microfone ao próprio site. Ele vai para `dist/` no build e o Cloudflare aplica (produção e previews).
+- Rotas como `/diagnostico` funcionam por causa do `not_found_handling: "single-page-application"` no `wrangler.jsonc`.
+- Testar a config sem publicar (opcional): `npm run build` e depois `npx wrangler deploy --dry-run`. O esperado é "Read N files from the assets directory … dist" e "--dry-run: exiting now".
 
 ---
 

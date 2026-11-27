@@ -1,0 +1,16 @@
+// Configuração do Cloudflare (Worker só com arquivos estáticos).
+// O build (`npm run build`) gera dist/; o Cloudflare serve essa pasta.
+// Ver README, seção "Deploy".
+{
+  "name": "ghosteq",
+  "compatibility_date": "2026-11-23",
+  "assets": {
+    "directory": "./dist",
+    // Qualquer caminho que não é arquivo (ex.: /diagnostico) recebe o index.html
+    // e o roteador do app (wouter) decide a tela.
+    "not_found_handling": "single-page-application",
+  },
+  // Exigido pelo `npx wrangler preview` (deploy das branches que não são a main).
+  // Vazio = a preview usa as mesmas configurações da produção.
+  "previews": {},
+}
