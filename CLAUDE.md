@@ -39,7 +39,7 @@ Engenheiro de dados (Python, Spark, SQL, CI/CD). Não conhece desenvolvimento fr
 - DSP próprio em TypeScript (sem libs pesadas); Web Audio API para preview/ao vivo
 - Vitest para testes
 - i18n PT-BR e EN desde o início (solução simples própria)
-- Deploy estático: GitHub + Cloudflare Pages, com URL de preview por branch
+- Deploy estático: GitHub + Cloudflare (Worker só com static assets, ver decisão 15), com URL de preview por branch
 
 ## 3. Arquitetura
 
@@ -188,4 +188,5 @@ O usuário testa no Chrome e no Edge (Windows) com o Nano Cortex e reporta. Se s
 12. Graphic-9 do Nano Cortex (confirmado pelo usuário no app Cortex Mobile): 65, 125, 250, 500 Hz, 1, 2, 4, 8, 16 kHz, mais HPF, LPF e OUTPUT. Q interno do Nano desconhecido; o GhostEQ usa Q proporcional + correção para a curva bater com os sliders.
 13. Modos não paramétricos guardam os controles em `modeState` e `bands` é sempre a lista compilada. O nome do WAV nesses modos usa os valores dos controles (ex.: `GEQ9_65+8_1k-6_...`), não as bandas internas.
 14. PWA com `registerType: 'prompt'` (o app nunca recarrega sozinho; aviso "Nova versão → Atualizar"). Loops `/samples/*.wav` em cache só quando tocados (runtime CacheFirst), fora do precache. Service worker desligado no dev.
-15. Lote 9 (latência ao vivo, foco Windows/Chrome/Edge): modo "Baixa latência" (`latencyHint: 0`) é padrão ligado no Windows e fica salvo no `localStorage`; estalos vêm de `AudioContext.playbackStats` quando existir. Saída pelo Nano é só experimental, nunca padrão. Não haverá app nativo: tudo continua no PWA.
+15. Deploy: o projeto no Cloudflare é um **Worker só com static assets** (Workers Builds), não Pages. `wrangler.jsonc` versionado: `assets.directory = ./dist`, `not_found_handling = single-page-application`, `previews: {}` (exigido pelo `npx wrangler preview` das branches). Produção: <https://ghosteq.nhc-1997.workers.dev>.
+16. Lote 9 (latência ao vivo, foco Windows/Chrome/Edge): modo "Baixa latência" (`latencyHint: 0`) é padrão ligado no Windows e fica salvo no `localStorage`; estalos vêm de `AudioContext.playbackStats` quando existir. Saída pelo Nano é só experimental, nunca padrão. Não haverá app nativo: tudo continua no PWA.
