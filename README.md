@@ -108,10 +108,10 @@ Sem esse arquivo, o deploy da `main` até funcionava (o `wrangler deploy` improv
   ```powershell
   git push -u origin teste-novo-modo
   ```
-  O build da branch roda `npx wrangler preview` e publica um endereço próprio (PREVIEW_URL_FORMAT). No pull request, o check **Workers Builds: ghosteq** fica verde e o link **Details** leva ao build no painel, com o endereço da preview.
+  O build da branch roda `npx wrangler preview` e publica um endereço próprio: o nome da branch com `/` trocada por `-`, mais `-ghosteq.nhc-1997.workers.dev`. Ex.: a branch `claude/cloudflare-worker-deploy` virou <https://claude-cloudflare-worker-deploy-ghosteq.nhc-1997.workers.dev>. Cada push na branch atualiza o mesmo endereço. No pull request, o check **Workers Builds: ghosteq** fica verde e o link **Details** leva ao build no painel, com o endereço da preview.
 - Endereços de preview são **públicos** (qualquer um com o link abre). Como o app não guarda dados de ninguém no servidor, tudo bem; se um dia precisar fechar, o Cloudflare Access resolve.
 - `public/_headers` controla o cache: `index.html`, `sw.js` e o manifest sempre são revalidados, e os arquivos com hash no nome ficam em cache por 1 ano. Também restringe o microfone ao próprio site. Ele vai para `dist/` no build e o Cloudflare aplica (produção e previews).
-- Rotas como `/diagnostico` funcionam por causa do `not_found_handling: "single-page-application"` no `wrangler.jsonc`.
+- Rotas como `/diagnostico` funcionam por causa do `not_found_handling: "single-page-application"` no `wrangler.jsonc`. Detalhe: o Cloudflare só entrega o `index.html` quando é o **navegador abrindo a página** (cabeçalho `Sec-Fetch-Mode: navigate`). Um `curl` simples em `/diagnostico` recebe 404, e isso é normal. A vantagem: um arquivo que não existe (ex.: `/assets/velho.js`) dá 404 de verdade, em vez de HTML disfarçado de JS.
 - Testar a config sem publicar (opcional): `npm run build` e depois `npx wrangler deploy --dry-run`. O esperado é "Read N files from the assets directory … dist" e "--dry-run: exiting now".
 
 ---
